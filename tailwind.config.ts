@@ -47,6 +47,18 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Supplement store specific colors
+        navy: {
+          deep: "hsl(var(--navy-deep))",
+          light: "hsl(var(--navy-light))",
+        },
+        orange: {
+          energy: "hsl(var(--orange-energy))",
+          light: "hsl(var(--orange-light))",
+        },
+        gray: {
+          soft: "hsl(var(--gray-soft))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -62,6 +74,16 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      backgroundImage: {
+        "gradient-hero": "var(--gradient-hero)",
+        "gradient-product": "var(--gradient-product)",
+        "gradient-cta": "var(--gradient-cta)",
+      },
+      boxShadow: {
+        "card": "var(--shadow-card)",
+        "product": "var(--shadow-product)",
+        "hero": "var(--shadow-hero)",
       },
       keyframes: {
         "accordion-down": {
