@@ -27,20 +27,20 @@ const Header = () => {
 
           {/* Navigation - Desktop */}
           <nav className="hidden md:flex items-center space-x-8">
-            <a href="#" className="text-primary-foreground hover:text-accent transition-colors font-medium">
+            <a href="/" className="text-primary-foreground hover:text-accent transition-colors font-medium">
               Home
             </a>
-            <a href="#" className="text-primary-foreground hover:text-accent transition-colors font-medium">
-              Whey Proteins
+            <a href="/products" className="text-primary-foreground hover:text-accent transition-colors font-medium">
+              Products
             </a>
-            <a href="#" className="text-primary-foreground hover:text-accent transition-colors font-medium">
-              Pre-Workout
+            <a href="/categories" className="text-primary-foreground hover:text-accent transition-colors font-medium">
+              Categories
             </a>
-            <a href="#" className="text-primary-foreground hover:text-accent transition-colors font-medium">
-              Creatine
+            <a href="/about" className="text-primary-foreground hover:text-accent transition-colors font-medium">
+              About
             </a>
-            <a href="#" className="text-primary-foreground hover:text-accent transition-colors font-medium">
-              Vitamins
+            <a href="/contact" className="text-primary-foreground hover:text-accent transition-colors font-medium">
+              Contact
             </a>
           </nav>
 
@@ -60,12 +60,14 @@ const Header = () => {
             <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-primary-foreground/10">
               <User className="w-5 h-5" />
             </Button>
-            <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-primary-foreground/10 relative">
-              <ShoppingCart className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 bg-accent text-accent-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                2
-              </span>
-            </Button>
+            <a href="/cart">
+              <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-primary-foreground/10 relative">
+                <ShoppingCart className="w-5 h-5" />
+                <span className="absolute -top-1 -right-1 bg-accent text-accent-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  2
+                </span>
+              </Button>
+            </a>
             <Button variant="ghost" size="sm" className="md:hidden text-primary-foreground">
               <Menu className="w-5 h-5" />
             </Button>
