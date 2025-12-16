@@ -58,11 +58,12 @@ const Header = () => {
 
           {/* Right Actions */}
           <div className="flex items-center space-x-4">
-            <Link to="/login">
+            <Link to="/profile">
               <Button
                 variant="ghost"
                 size="sm"
                 className="text-primary-foreground hover:bg-primary-foreground/10"
+                aria-label="Profile"
               >
                 <User className="w-5 h-5" />
               </Button>
