@@ -31,7 +31,10 @@ const Register = () => {
 
     try {
       setLoading(true);
-      const res = await fetch("/api/users/register", {
+      const API_BASE_URL =
+        import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
+
+      const res = await fetch(`${API_BASE_URL}/api/users/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -6,12 +6,7 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     phone: { type: String },
-    address: {
-      street: String,
-      city: String,
-      state: String,
-      pincode: String
-    },
+    address: { type: String },
     role: { type: String, enum: ["customer", "admin"], default: "customer" }
   },
   { timestamps: true }
