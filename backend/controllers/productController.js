@@ -81,10 +81,11 @@ export const updateProduct = asyncHandler(async (req, res) => {
  * @access Private/Admin
  */
 export const deleteProduct = asyncHandler(async (req, res) => {
-  const product = await Product.findById(req.params.id);
-  if (!product) return res.status(404).json({ message: "Product not found" });
-  await product.remove();
-  res.json({ message: "Product removed" });
+  const product = await Product.findByIdAndDelete(req.params.id);
+  if (!product) {
+    return res.status(404).json({ message: "Product not found" });
+  }
+  res.json({ message: "Product removed successfully" });
 });
 
 /**

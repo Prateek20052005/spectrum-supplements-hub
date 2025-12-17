@@ -1,9 +1,23 @@
-import { ShoppingCart, Search, Menu, User } from "lucide-react";
+import { ShoppingCart, Search, Menu, User, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 const Header = () => {
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const userInfo = localStorage.getItem("userInfo");
+    if (userInfo) {
+      try {
+        const user = JSON.parse(userInfo);
+        setIsAdmin(user?.role === "admin");
+      } catch (error) {
+        console.error("Error parsing user info:", error);
+      }
+    }
+  }, []);
   return (
     <header className="bg-gradient-hero shadow-hero sticky top-0 z-50">
       {/* Top Banner */}
@@ -58,16 +72,31 @@ const Header = () => {
 
           {/* Right Actions */}
           <div className="flex items-center space-x-4">
-            <Link to="/profile">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-primary-foreground hover:bg-primary-foreground/10"
-                aria-label="Profile"
-              >
-                <User className="w-5 h-5" />
-              </Button>
-            </Link>
+            {isAdmin ? (
+              <Link to="/admin">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-primary-foreground hover:bg-primary-foreground/10 group"
+                  aria-label="Admin Dashboard"
+                  title="Admin Dashboard"
+                >
+                  <Shield className="w-5 h-5 group-hover:text-accent" />
+                </Button>
+              </Link>
+            ) : (
+              <Link to="/profile">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-primary-foreground hover:bg-primary-foreground/10 group"
+                  aria-label="Profile"
+                  title="My Profile"
+                >
+                  <User className="w-5 h-5 group-hover:text-accent" />
+                </Button>
+              </Link>
+            )}
             <a href="/cart">
               <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-primary-foreground/10 relative">
                 <ShoppingCart className="w-5 h-5" />
