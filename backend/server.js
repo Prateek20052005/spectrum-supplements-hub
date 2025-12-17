@@ -21,12 +21,14 @@ app.get("/", (req, res) => {
 import productRoutes from "./routes/productRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
+import cartRoutes from "./routes/cartRoutes.js";
 
 // 4️⃣ Use routes
 // Public or protected routes go here
 app.use("/api/products", productRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/cart", cartRoutes);
 
 // 5️⃣ 404 handler (optional)
 app.use((req, res) => {

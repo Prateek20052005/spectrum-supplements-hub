@@ -1,24 +1,63 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+type Product = {
+  _id: string;
+  name: string;
+  price: number;
+  brand?: string;
+  category?: string;
+  images?: string[];
+  rating?: number;
+  reviews?: any[];
+};
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
+
 const Products = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("featured");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const products = [
-    { id: 1, name: "Premium Whey Protein", price: "$49.99", rating: 4.8, reviews: 128, image: "/placeholder.svg", badge: "Best Seller", category: "Protein" },
-    { id: 2, name: "Creatine Monohydrate", price: "$29.99", rating: 4.9, reviews: 95, image: "/placeholder.svg", category: "Creatine" },
-    { id: 3, name: "Pre-Workout Energy", price: "$39.99", rating: 4.7, reviews: 76, image: "/placeholder.svg", badge: "New", category: "Pre-Workout" },
-    { id: 4, name: "BCAA Recovery", price: "$34.99", rating: 4.6, reviews: 54, image: "/placeholder.svg", category: "Recovery" },
-    { id: 5, name: "Mass Gainer", price: "$59.99", rating: 4.5, reviews: 43, image: "/placeholder.svg", category: "Mass Gainer" },
-    { id: 6, name: "Multivitamin Complex", price: "$24.99", rating: 4.8, reviews: 112, image: "/placeholder.svg", category: "Vitamins" },
-    { id: 7, name: "Omega-3 Fish Oil", price: "$19.99", rating: 4.7, reviews: 89, image: "/placeholder.svg", category: "Vitamins" },
-    { id: 8, name: "Vitamin D3", price: "$14.99", rating: 4.9, reviews: 134, image: "/placeholder.svg", category: "Vitamins" },
-  ];
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        const url = searchQuery
+          ? `${API_BASE_URL}/api/products?keyword=${encodeURIComponent(searchQuery)}`
+          : `${API_BASE_URL}/api/products`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to fetch products");
+        const data = await res.json();
+        setProducts(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Error fetching products:", error);
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [searchQuery]);
+
+  const sortedProducts = [...products].sort((a, b) => {
+    switch (sortBy) {
+      case "price-low":
+        return a.price - b.price;
+      case "price-high":
+        return b.price - a.price;
+      case "rating":
+        return (b.rating || 0) - (a.rating || 0);
+      default:
+        return 0;
+    }
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -46,11 +85,27 @@ const Products = () => {
           </Select>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {products.map((product) => (
-            <ProductCard key={product.id} {...product} />
-          ))}
-        </div>
+        {loading ? (
+          <p className="text-muted-foreground">Loading products...</p>
+        ) : sortedProducts.length === 0 ? (
+          <p className="text-muted-foreground">No products found.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {sortedProducts.map((product) => (
+              <ProductCard
+                key={product._id}
+                _id={product._id}
+                id={product._id}
+                name={product.name}
+                price={`$${product.price.toFixed(2)}`}
+                rating={product.rating || 0}
+                reviews={product.reviews?.length || 0}
+                image={product.images?.[0] || "/placeholder.svg"}
+                category={product.category || "Uncategorized"}
+              />
+            ))}
+          </div>
+        )}
       </main>
       <Footer />
     </div>

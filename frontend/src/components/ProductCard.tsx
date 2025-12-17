@@ -1,10 +1,14 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Star, Heart, ShoppingCart } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 interface ProductCardProps {
-  id: number;
+  id: number | string;
+  _id?: string;
   name: string;
-  price: string;
+  price: string | number;
   originalPrice?: string;
   rating: number;
   reviews: number;
@@ -13,7 +17,11 @@ interface ProductCardProps {
   category: string;
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
+
 const ProductCard = ({ 
+  id,
+  _id,
   name, 
   price, 
   originalPrice, 
@@ -23,6 +31,76 @@ const ProductCard = ({
   badge,
   category 
 }: ProductCardProps) => {
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [adding, setAdding] = useState(false);
+  
+  // Prioritize _id (MongoDB ObjectId) over id (numeric)
+  const productId = _id || (id && typeof id === 'string' && id.length > 10 ? id : null);
+
+  const handleAddToCart = async () => {
+    try {
+      const userInfoRaw = localStorage.getItem("userInfo");
+      if (!userInfoRaw) {
+        toast({
+          variant: "destructive",
+          title: "Please log in",
+          description: "You need to be logged in to add items to your cart.",
+        });
+        navigate("/login");
+        return;
+      }
+
+      const userInfo = JSON.parse(userInfoRaw);
+      const token = userInfo?.token;
+      if (!token) {
+        toast({
+          variant: "destructive",
+          title: "Please log in",
+          description: "You need to be logged in to add items to your cart.",
+        });
+        navigate("/login");
+        return;
+      }
+
+      if (!productId) {
+        toast({
+          variant: "destructive",
+          title: "Invalid product",
+          description: "This product cannot be added to cart. Please refresh the page.",
+        });
+        return;
+      }
+
+      setAdding(true);
+      const res = await fetch(`${API_BASE_URL}/api/cart`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ productId, quantity: 1 }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.message || "Failed to add to cart");
+      }
+
+      toast({
+        title: "Added to cart",
+        description: `${name} has been added to your cart.`,
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error adding to cart",
+        description: error.message || "Could not add item to cart.",
+      });
+    } finally {
+      setAdding(false);
+    }
+  };
   return (
     <div className="bg-card rounded-2xl p-6 shadow-card hover:shadow-product transition-all duration-300 transform hover:-translate-y-2 group">
       {/* Product Image */}
@@ -92,9 +170,11 @@ const ProductCard = ({
         <Button 
           className="w-full bg-gradient-cta hover:shadow-lg transform hover:scale-105 transition-all"
           size="lg"
+          onClick={handleAddToCart}
+          disabled={adding}
         >
           <ShoppingCart className="w-4 h-4 mr-2" />
-          Add to Cart
+          {adding ? "Adding..." : "Add to Cart"}
         </Button>
       </div>
     </div>

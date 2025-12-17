@@ -14,7 +14,7 @@ type Product = {
   price: number;
   brand?: string;
   category?: string;
-  countInStock?: number;
+  stock?: number;
 };
 
 type Order = {
@@ -40,7 +40,7 @@ const Admin = () => {
     price: 0,
     brand: "",
     category: "",
-    countInStock: 0,
+    stock: 0,
   });
 
   let userInfo: any = null;
@@ -152,7 +152,7 @@ const Admin = () => {
         price: 0,
         brand: "",
         category: "",
-        countInStock: 0,
+        stock: 0,
       });
       setEditingProduct(null);
       fetchProducts();
@@ -167,13 +167,13 @@ const Admin = () => {
 
   const handleEditProduct = (product: Product) => {
     setEditingProduct(product);
-    setForm({
-      name: product.name,
-      price: product.price,
-      brand: product.brand || "",
-      category: product.category || "",
-      countInStock: product.countInStock || 0,
-    });
+      setForm({
+        name: product.name,
+        price: product.price,
+        brand: product.brand || "",
+        category: product.category || "",
+        stock: product.stock || 0,
+      });
   };
 
   const handleDeleteProduct = async (id?: string) => {
@@ -299,9 +299,9 @@ const Admin = () => {
                       <Input
                         id="stock"
                         type="number"
-                        value={form.countInStock}
+                        value={form.stock}
                         onChange={(e) =>
-                          setForm({ ...form, countInStock: Number(e.target.value) || 0 })
+                          setForm({ ...form, stock: Number(e.target.value) || 0 })
                         }
                         placeholder="0"
                       />
@@ -346,7 +346,7 @@ const Admin = () => {
                           <p className="font-medium text-sm">{p.name}</p>
                           <p className="text-xs text-muted-foreground">
                             ${p.price} · {p.brand || "No brand"} · Stock:{" "}
-                            {p.countInStock ?? "n/a"}
+                            {p.stock ?? "n/a"}
                           </p>
                         </div>
                         <div className="flex gap-2">

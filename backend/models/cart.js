@@ -13,5 +13,6 @@ const cartSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const Cart = mongoose.model("Cart", cartSchema);
+// Avoid OverwriteModelError in dev / hot-reload
+const Cart = mongoose.models.Cart || mongoose.model("Cart", cartSchema);
 export default Cart;
