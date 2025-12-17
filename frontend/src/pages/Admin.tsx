@@ -5,8 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
+import { X, Plus, Edit, Trash2, Package, User, DollarSign } from "lucide-react";
 
 type Product = {
   _id?: string;
@@ -14,14 +17,22 @@ type Product = {
   price: number;
   brand?: string;
   category?: string;
+  description?: string;
   stock?: number;
+  images?: string[];
 };
 
 type Order = {
   _id: string;
-  user?: { name?: string; email?: string };
+  userId?: { fullName?: string; email?: string };
+  user?: { fullName?: string; email?: string };
+  totalAmount?: number;
   totalPrice?: number;
+  orderStatus?: string;
   status?: string;
+  items?: Array<{ name?: string; quantity?: number; price?: number }>;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
@@ -35,12 +46,15 @@ const Admin = () => {
   const [loadingOrders, setLoadingOrders] = useState(false);
 
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [form, setForm] = useState<Product>({
+  const [form, setForm] = useState<Product & { imageUrls: string }>({
     name: "",
     price: 0,
     brand: "",
     category: "",
+    description: "",
     stock: 0,
+    images: [],
+    imageUrls: "",
   });
 
   let userInfo: any = null;
@@ -68,7 +82,7 @@ const Admin = () => {
       setLoadingProducts(true);
       const res = await fetch(`${API_BASE_URL}/api/products`);
       const data = await res.json();
-      setProducts(data || []);
+      setProducts(Array.isArray(data) ? data : []);
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -114,6 +128,16 @@ const Admin = () => {
     fetchOrders();
   }, []);
 
+  const handleImageUrlsChange = (value: string) => {
+    setForm({ ...form, imageUrls: value });
+    // Parse comma or newline separated URLs
+    const urls = value
+      .split(/[,\n]/)
+      .map((url) => url.trim())
+      .filter((url) => url.length > 0);
+    setForm({ ...form, imageUrls: value, images: urls });
+  };
+
   const handleSubmitProduct = async () => {
     if (!form.name || !form.price) {
       toast({
@@ -131,10 +155,20 @@ const Admin = () => {
           ? `${API_BASE_URL}/api/products`
           : `${API_BASE_URL}/api/products/${editingProduct?._id}`;
 
+      const payload = {
+        name: form.name,
+        price: form.price,
+        brand: form.brand || undefined,
+        category: form.category || undefined,
+        description: form.description || undefined,
+        stock: form.stock || 0,
+        images: form.images || [],
+      };
+
       const res = await fetch(url, {
         method,
         headers: authHeaders,
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -152,7 +186,10 @@ const Admin = () => {
         price: 0,
         brand: "",
         category: "",
+        description: "",
         stock: 0,
+        images: [],
+        imageUrls: "",
       });
       setEditingProduct(null);
       fetchProducts();
@@ -167,18 +204,21 @@ const Admin = () => {
 
   const handleEditProduct = (product: Product) => {
     setEditingProduct(product);
-      setForm({
-        name: product.name,
-        price: product.price,
-        brand: product.brand || "",
-        category: product.category || "",
-        stock: product.stock || 0,
-      });
+    setForm({
+      name: product.name,
+      price: product.price,
+      brand: product.brand || "",
+      category: product.category || "",
+      description: product.description || "",
+      stock: product.stock || 0,
+      images: product.images || [],
+      imageUrls: product.images?.join(", ") || "",
+    });
   };
 
   const handleDeleteProduct = async (id?: string) => {
     if (!id) return;
-    if (!window.confirm("Are you sure you want to delete this product?")) return;
+    if (!window.confirm("Are you sure you want to delete this product? This action cannot be undone.")) return;
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/products/${id}`, {
@@ -208,7 +248,7 @@ const Admin = () => {
       const res = await fetch(`${API_BASE_URL}/api/orders/${orderId}/status`, {
         method: "PUT",
         headers: authHeaders,
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ orderStatus: status }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -216,7 +256,7 @@ const Admin = () => {
       }
       toast({
         title: "Order updated",
-        description: `Order status set to ${status}.`,
+        description: `Order status updated to ${status}.`,
       });
       fetchOrders();
     } catch (error: any) {
@@ -225,6 +265,21 @@ const Admin = () => {
         title: "Error updating order",
         description: error.message || "Please check your admin permissions and try again.",
       });
+    }
+  };
+
+  const getStatusColor = (status?: string) => {
+    switch (status?.toLowerCase()) {
+      case "delivered":
+        return "bg-green-500";
+      case "shipped":
+        return "bg-blue-500";
+      case "processing":
+        return "bg-yellow-500";
+      case "cancelled":
+        return "bg-red-500";
+      default:
+        return "bg-gray-500";
     }
   };
 
@@ -238,8 +293,7 @@ const Admin = () => {
               <CardTitle className="text-2xl">Admin Dashboard</CardTitle>
             </CardHeader>
             <CardContent className="text-muted-foreground text-sm">
-              Manage products and monitor orders. Note: actions that change data require an admin token
-              (user with role \"admin\" logged in).
+              Manage products and monitor orders. All changes require admin authentication.
             </CardContent>
           </Card>
 
@@ -247,68 +301,114 @@ const Admin = () => {
             {/* Products management */}
             <Card className="shadow-card">
               <CardHeader>
-                <CardTitle>Products</CardTitle>
+                <CardTitle>Product Management</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-3">
-                  <h3 className="font-semibold">
-                    {editingProduct ? "Edit product" : "Create new product"}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-lg">
+                    {editingProduct ? "Edit Product" : "Create New Product"}
                   </h3>
                   <div className="space-y-3">
                     <div className="space-y-1">
-                      <Label htmlFor="name">Name</Label>
+                      <Label htmlFor="name">Product Name *</Label>
                       <Input
                         id="name"
                         value={form.name}
                         onChange={(e) => setForm({ ...form, name: e.target.value })}
-                        placeholder="Product name"
+                        placeholder="e.g., Premium Whey Protein"
+                        required
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="price">Price ($) *</Label>
+                        <Input
+                          id="price"
+                          type="number"
+                          step="0.01"
+                          value={form.price}
+                          onChange={(e) =>
+                            setForm({ ...form, price: Number(e.target.value) || 0 })
+                          }
+                          placeholder="49.99"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="stock">Stock</Label>
+                        <Input
+                          id="stock"
+                          type="number"
+                          value={form.stock}
+                          onChange={(e) =>
+                            setForm({ ...form, stock: Number(e.target.value) || 0 })
+                          }
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="brand">Brand</Label>
+                        <Input
+                          id="brand"
+                          value={form.brand}
+                          onChange={(e) => setForm({ ...form, brand: e.target.value })}
+                          placeholder="Brand name"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="category">Category</Label>
+                        <Input
+                          id="category"
+                          value={form.category}
+                          onChange={(e) => setForm({ ...form, category: e.target.value })}
+                          placeholder="e.g., Protein, Vitamins"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea
+                        id="description"
+                        value={form.description}
+                        onChange={(e) => setForm({ ...form, description: e.target.value })}
+                        placeholder="Product description..."
+                        rows={3}
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="price">Price</Label>
-                      <Input
-                        id="price"
-                        type="number"
-                        value={form.price}
-                        onChange={(e) =>
-                          setForm({ ...form, price: Number(e.target.value) || 0 })
-                        }
-                        placeholder="49.99"
+                      <Label htmlFor="images">Image URLs</Label>
+                      <Textarea
+                        id="images"
+                        value={form.imageUrls}
+                        onChange={(e) => handleImageUrlsChange(e.target.value)}
+                        placeholder="Enter image URLs separated by commas or new lines"
+                        rows={2}
                       />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="brand">Brand</Label>
-                      <Input
-                        id="brand"
-                        value={form.brand}
-                        onChange={(e) => setForm({ ...form, brand: e.target.value })}
-                        placeholder="Brand"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="category">Category</Label>
-                      <Input
-                        id="category"
-                        value={form.category}
-                        onChange={(e) => setForm({ ...form, category: e.target.value })}
-                        placeholder="Category"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="stock">Stock</Label>
-                      <Input
-                        id="stock"
-                        type="number"
-                        value={form.stock}
-                        onChange={(e) =>
-                          setForm({ ...form, stock: Number(e.target.value) || 0 })
-                        }
-                        placeholder="0"
-                      />
+                      <p className="text-xs text-muted-foreground">
+                        Separate multiple URLs with commas or new lines
+                      </p>
+                      {form.images && form.images.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {form.images.map((img, idx) => (
+                            <div key={idx} className="relative">
+                              <img
+                                src={img}
+                                alt={`Preview ${idx + 1}`}
+                                className="w-16 h-16 object-cover rounded border"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = "/placeholder.svg";
+                                }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2">
-                      <Button onClick={handleSubmitProduct}>
-                        {editingProduct ? "Update product" : "Create product"}
+                      <Button onClick={handleSubmitProduct} className="flex-1">
+                        {editingProduct ? "Update Product" : "Create Product"}
                       </Button>
                       {editingProduct && (
                         <Button
@@ -321,7 +421,10 @@ const Admin = () => {
                               price: 0,
                               brand: "",
                               category: "",
-                              countInStock: 0,
+                              description: "",
+                              stock: 0,
+                              images: [],
+                              imageUrls: "",
                             });
                           }}
                         >
@@ -332,22 +435,36 @@ const Admin = () => {
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-3 border-t pt-4">
                   <h3 className="font-semibold">
-                    All products {loadingProducts && "(loading...)"}
+                    All Products {loadingProducts && "(loading...)"}
                   </h3>
-                  <div className="space-y-2 max-h-80 overflow-auto border rounded-md p-2 bg-card">
+                  <div className="space-y-2 max-h-96 overflow-auto border rounded-md p-2 bg-card">
                     {products.map((p) => (
                       <div
                         key={p._id}
-                        className="flex items-center justify-between gap-2 border-b last:border-b-0 pb-2"
+                        className="flex items-start gap-3 border-b last:border-b-0 pb-3 pt-2"
                       >
-                        <div className="space-y-1">
-                          <p className="font-medium text-sm">{p.name}</p>
+                        {p.images && p.images.length > 0 && (
+                          <img
+                            src={p.images[0]}
+                            alt={p.name}
+                            className="w-16 h-16 object-cover rounded border"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = "/placeholder.svg";
+                            }}
+                          />
+                        )}
+                        <div className="flex-1 space-y-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{p.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            ${p.price} · {p.brand || "No brand"} · Stock:{" "}
-                            {p.stock ?? "n/a"}
+                            ${p.price.toFixed(2)} · {p.brand || "No brand"} · Stock: {p.stock ?? 0}
                           </p>
+                          {p.category && (
+                            <Badge variant="outline" className="text-xs">
+                              {p.category}
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex gap-2">
                           <Button
@@ -355,20 +472,20 @@ const Admin = () => {
                             variant="outline"
                             onClick={() => handleEditProduct(p)}
                           >
-                            Edit
+                            <Edit className="w-4 h-4" />
                           </Button>
                           <Button
                             size="sm"
                             variant="destructive"
                             onClick={() => handleDeleteProduct(p._id)}
                           >
-                            Delete
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
                     ))}
-                    {!products.length && (
-                      <p className="text-xs text-muted-foreground">
+                    {!products.length && !loadingProducts && (
+                      <p className="text-xs text-muted-foreground text-center py-4">
                         No products found. Create your first product above.
                       </p>
                     )}
@@ -380,55 +497,101 @@ const Admin = () => {
             {/* Orders management */}
             <Card className="shadow-card">
               <CardHeader>
-                <CardTitle>Orders</CardTitle>
+                <CardTitle>Order Management</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Update the status of customer orders.
+                  Monitor and update order statuses. Click on status to change it.
                 </p>
-                <div className="space-y-2 max-h-96 overflow-auto border rounded-md p-2 bg-card">
+                <div className="space-y-3 max-h-[600px] overflow-auto border rounded-md p-2 bg-card">
                   {loadingOrders && (
-                    <p className="text-xs text-muted-foreground">Loading orders...</p>
+                    <p className="text-xs text-muted-foreground text-center py-4">
+                      Loading orders...
+                    </p>
                   )}
                   {!loadingOrders &&
                     Array.isArray(orders) &&
-                    orders.map((order) => (
-                      <div
-                        key={order._id}
-                        className="flex flex-col gap-1 border-b last:border-b-0 pb-2"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="space-y-1">
-                            <p className="font-medium text-sm">
-                              Order {order._id.slice(-6)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {order.user?.name || order.user?.email || "Customer"} · Total: $
-                              {order.totalPrice ?? "n/a"}
-                            </p>
+                    orders.map((order) => {
+                      const status = order.orderStatus || order.status || "pending";
+                      const total = order.totalAmount || order.totalPrice || 0;
+                      const user = order.user || order.userId;
+                      const orderDate = order.createdAt
+                        ? new Date(order.createdAt).toLocaleDateString()
+                        : "";
+
+                      return (
+                        <div
+                          key={order._id}
+                          className="flex flex-col gap-2 border-b last:border-b-0 pb-3 pt-2"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 space-y-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <Package className="w-4 h-4 text-muted-foreground" />
+                                <p className="font-medium text-sm">
+                                  Order #{order._id.slice(-8).toUpperCase()}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <User className="w-3 h-3" />
+                                <span className="truncate">
+                                  {user?.fullName || user?.email || "Guest"}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <DollarSign className="w-3 h-3" />
+                                <span>${total.toFixed(2)}</span>
+                                {order.items && order.items.length > 0 && (
+                                  <span>· {order.items.length} item(s)</span>
+                                )}
+                              </div>
+                              {orderDate && (
+                                <p className="text-xs text-muted-foreground">
+                                  {orderDate}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                              <Select
+                                value={status}
+                                onValueChange={(value) =>
+                                  handleUpdateOrderStatus(order._id, value)
+                                }
+                              >
+                                <SelectTrigger className="w-36 h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="pending">Pending</SelectItem>
+                                  <SelectItem value="processing">Processing</SelectItem>
+                                  <SelectItem value="shipped">Shipped</SelectItem>
+                                  <SelectItem value="delivered">Delivered</SelectItem>
+                                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <div
+                                className={`w-3 h-3 rounded-full ${getStatusColor(status)}`}
+                                title={status}
+                              />
+                            </div>
                           </div>
-                          <Select
-                            defaultValue={order.status || "pending"}
-                            onValueChange={(value) =>
-                              handleUpdateOrderStatus(order._id, value)
-                            }
-                          >
-                            <SelectTrigger className="w-32 h-8 text-xs">
-                              <SelectValue placeholder="Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="processing">Processing</SelectItem>
-                              <SelectItem value="shipped">Shipped</SelectItem>
-                              <SelectItem value="delivered">Delivered</SelectItem>
-                              <SelectItem value="cancelled">Cancelled</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          {order.items && order.items.length > 0 && (
+                            <div className="text-xs text-muted-foreground pl-6">
+                              {order.items.slice(0, 2).map((item, idx) => (
+                                <div key={idx}>
+                                  {item.name || "Item"} × {item.quantity || 1}
+                                </div>
+                              ))}
+                              {order.items.length > 2 && (
+                                <div>+{order.items.length - 2} more</div>
+                              )}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   {!loadingOrders && (!Array.isArray(orders) || !orders.length) && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground text-center py-4">
                       No orders found yet.
                     </p>
                   )}
@@ -444,5 +607,3 @@ const Admin = () => {
 };
 
 export default Admin;
-
-
