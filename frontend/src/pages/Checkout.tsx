@@ -19,12 +19,33 @@ type CartItem = {
   image?: string;
 };
 
+type UserProfile = {
+  _id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  shippingAddress?: {
+    street: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  };
+};
+
 type Order = {
   items: CartItem[];
   total: number;
   subtotal: number;
   shipping: number;
   tax: number;
+  shippingAddress?: {
+    street: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  };
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
@@ -37,6 +58,15 @@ const Checkout = () => {
   const [paymentMethod, setPaymentMethod] = useState('credit-card');
   const [processing, setProcessing] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [shippingAddress, setShippingAddress] = useState({
+    street: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    country: 'India'
+  });
+  const [saveShippingAddress, setSaveShippingAddress] = useState(false);
 
   const getAuthHeaders = () => {
     try {
@@ -54,9 +84,81 @@ const Checkout = () => {
     }
   };
 
+  const fetchUserProfile = async (headers: HeadersInit) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/users/profile`, { headers });
+      if (res.ok) {
+        const userData = await res.json();
+        setUser(userData);
+        if (userData.shippingAddress) {
+          setShippingAddress(userData.shippingAddress);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
+
+  const updateUserProfile = async (updates: Partial<UserProfile>) => {
+    const headers = getAuthHeaders();
+    if (!headers) return false;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/users/profile`, {
+        method: 'PUT',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updates)
+      });
+      if (res.ok) {
+        const updatedUser = await res.json();
+        setUser(updatedUser);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      return false;
+    }
+  };
+
   useEffect(() => {
-    const fetchCart = async () => {
+    const fetchCartAndUser = async () => {
       const headers = getAuthHeaders();
+      if (!headers) {
+        toast({
+          variant: "destructive",
+          title: "Authentication required",
+          description: "Please log in to proceed to checkout.",
+        });
+        navigate('/login', { state: { from: '/checkout' } });
+        return;
+      }
+
+      try {
+        setLoading(true);
+        await Promise.all([
+          fetchUserProfile(headers),
+          fetchCart(headers)
+        ]);
+      } catch (error) {
+        console.error('Error loading checkout data:', error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to load checkout data. Please try again.",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCartAndUser();
+  }, [navigate, toast]);
+
+  const fetchCart = async (headers: HeadersInit) => {
       if (!headers) {
         toast({
           variant: "destructive",
@@ -121,8 +223,6 @@ const Checkout = () => {
       }
     };
 
-    fetchCart();
-  }, [navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,6 +232,33 @@ const Checkout = () => {
     if (!headers) {
       navigate('/login', { state: { from: '/checkout' } });
       return;
+    }
+
+    // If user doesn't have a shipping address, validate the form
+    if (!user?.shippingAddress) {
+      const requiredFields = ['street', 'city', 'state', 'postalCode', 'country'];
+      const missingFields = requiredFields.filter(field => !shippingAddress[field as keyof typeof shippingAddress]);
+      
+      if (missingFields.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Missing Information",
+          description: `Please fill in all required shipping address fields.`,
+        });
+        return;
+      }
+
+      // Save shipping address to profile if requested
+      if (saveShippingAddress && user) {
+        const success = await updateUserProfile({ shippingAddress });
+        if (!success) {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to save shipping address. You can continue checkout, but the address won't be saved.",
+          });
+        }
+      }
     }
 
     setProcessing(true);
@@ -151,6 +278,7 @@ const Checkout = () => {
           taxPrice: order.tax,
           shippingPrice: order.shipping,
           totalPrice: order.total,
+          shippingAddress: user?.shippingAddress || shippingAddress,
         }),
       });
 
@@ -189,6 +317,8 @@ const Checkout = () => {
       </div>
     );
   }
+
+  const hasShippingAddress = !!user?.shippingAddress;
 
   if (orderSuccess) {
     return (
@@ -244,49 +374,114 @@ const Checkout = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="firstName">First Name</Label>
-                        <Input id="firstName" required />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="lastName">Last Name</Label>
-                        <Input id="lastName" required />
-                      </div>
+                    <div>
+                      <p className="font-medium">{user?.name || 'Not provided'}</p>
+                      <p className="text-muted-foreground text-sm">{user?.email || 'No email'}</p>
+                      {user?.phone && <p className="text-muted-foreground text-sm">{user.phone}</p>}
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input id="email" type="email" required />
-                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => navigate('/profile')}
+                    >
+                      Update Profile
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Shipping Address</CardTitle>
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    <span>Shipping Address</span>
+                    {hasShippingAddress && (
+                      <span className="text-sm font-normal text-green-600">
+                        Saved
+                      </span>
+                    )}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+                  {hasShippingAddress ? (
                     <div className="space-y-2">
-                      <Label htmlFor="address">Address</Label>
-                      <Input id="address" required />
+                      <p className="font-medium">{user.shippingAddress.street}</p>
+                      <p className="text-muted-foreground">
+                        {user.shippingAddress.city}, {user.shippingAddress.state} {user.shippingAddress.postalCode}
+                      </p>
+                      <p className="text-muted-foreground">{user.shippingAddress.country}</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => navigate('/profile')}
+                        className="mt-2"
+                      >
+                        Update Address
+                      </Button>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  ) : (
+                    <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="city">City</Label>
-                        <Input id="city" required />
+                        <Label htmlFor="street">Street Address *</Label>
+                        <Input 
+                          id="street" 
+                          value={shippingAddress.street}
+                          onChange={(e) => setShippingAddress({...shippingAddress, street: e.target.value})}
+                          required 
+                        />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="postalCode">Postal Code</Label>
-                        <Input id="postalCode" required />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="city">City *</Label>
+                          <Input 
+                            id="city" 
+                            value={shippingAddress.city}
+                            onChange={(e) => setShippingAddress({...shippingAddress, city: e.target.value})}
+                            required 
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="state">State *</Label>
+                          <Input 
+                            id="state" 
+                            value={shippingAddress.state}
+                            onChange={(e) => setShippingAddress({...shippingAddress, state: e.target.value})}
+                            required 
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="postalCode">Postal Code *</Label>
+                          <Input 
+                            id="postalCode" 
+                            value={shippingAddress.postalCode}
+                            onChange={(e) => setShippingAddress({...shippingAddress, postalCode: e.target.value})}
+                            required 
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="country">Country</Label>
+                          <Input 
+                            id="country" 
+                            value={shippingAddress.country}
+                            disabled
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 pt-2">
+                        <input
+                          type="checkbox"
+                          id="save-address"
+                          checked={saveShippingAddress}
+                          onChange={(e) => setSaveShippingAddress(e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <label htmlFor="save-address" className="text-sm text-muted-foreground">
+                          Save this address for future orders
+                        </label>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="country">Country</Label>
-                      <Input id="country" required />
-                    </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
 
