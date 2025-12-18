@@ -3,14 +3,15 @@ import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 import heroProduct1 from "@/assets/hero-product-1.jpg";
 import heroProduct2 from "@/assets/hero-product-2.jpg";
 import heroProduct3 from "@/assets/hero-product-3.jpg";
+import { formatINR } from "@/utils/currency";
 
 const Hero = () => {
   const products = [
     {
       id: 1,
       name: "Premium Whey Protein",
-      price: "$59.99",
-      originalPrice: "$79.99",
+      price: 5999,
+      originalPrice: 7999,
       rating: 4.8,
       reviews: 1247,
       image: heroProduct1,
@@ -19,8 +20,8 @@ const Hero = () => {
     {
       id: 2,
       name: "Energy Pre-Workout",
-      price: "$39.99",
-      originalPrice: "$49.99",
+      price: 3999,
+      originalPrice: 4999,
       rating: 4.9,
       reviews: 892,
       image: heroProduct2,
@@ -29,8 +30,8 @@ const Hero = () => {
     {
       id: 3,
       name: "Pure Creatine Monohydrate",
-      price: "$24.99",
-      originalPrice: "$34.99",
+      price: 2499,
+      originalPrice: 3499,
       rating: 4.7,
       reviews: 634,
       image: heroProduct3,
@@ -114,9 +115,9 @@ const Hero = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-accent">{product.price}</span>
+                        <span className="text-lg font-bold text-accent">{formatINR(product.price)}</span>
                         <span className="text-sm text-muted-foreground line-through">
-                          {product.originalPrice}
+                          {formatINR(product.originalPrice)}
                         </span>
                       </div>
                     </div>

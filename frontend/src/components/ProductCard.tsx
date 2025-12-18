@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Star, Heart, ShoppingCart } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { formatINR } from "@/utils/currency";
 
 interface ProductCardProps {
   id: number | string;
   _id?: string;
   name: string;
-  price: string | number;
-  originalPrice?: string;
+  price: number | string;
+  originalPrice?: number | string;
   rating: number;
   reviews: number;
   image: string;
@@ -34,6 +35,9 @@ const ProductCard = ({
   const { toast } = useToast();
   const navigate = useNavigate();
   const [adding, setAdding] = useState(false);
+
+  const hasOriginalPrice =
+    originalPrice !== undefined && originalPrice !== null && `${originalPrice}`.length > 0;
   
   // Prioritize _id (MongoDB ObjectId) over id (numeric)
   const productId = _id || (id && typeof id === 'string' && id.length > 10 ? id : null);
@@ -157,11 +161,9 @@ const ProductCard = ({
         {/* Price */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-xl font-bold text-accent">{price}</span>
-            {originalPrice && (
-              <span className="text-sm text-muted-foreground line-through">
-                {originalPrice}
-              </span>
+            <div className="text-primary font-bold text-lg">{formatINR(price)}</div>
+            {hasOriginalPrice && (
+              <span className="text-muted-foreground line-through text-sm">{formatINR(originalPrice)}</span>
             )}
           </div>
         </div>

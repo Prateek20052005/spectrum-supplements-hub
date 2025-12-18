@@ -28,13 +28,13 @@ type UserProfile = {
 };
 
 const sampleCurrentOrders: OrderSummary[] = [
-  { id: "ORD-3012", status: "Preparing", items: 2, total: "$86.00", eta: "Arrives in 2-3 days" },
-  { id: "ORD-3005", status: "Shipped", items: 1, total: "$42.00", eta: "On the way" },
+  { id: "ORD-3012", status: "Preparing", items: 2, total: "₹7,200", eta: "Arrives in 2-3 days" },
+  { id: "ORD-3005", status: "Shipped", items: 1, total: "₹3,500", eta: "On the way" },
 ];
 
 const sampleOrderHistory: OrderSummary[] = [
-  { id: "ORD-2988", status: "Delivered", items: 3, total: "$120.00", date: "Nov 23, 2025" },
-  { id: "ORD-2950", status: "Delivered", items: 1, total: "$38.00", date: "Oct 10, 2025" },
+  { id: "ORD-2988", status: "Delivered", items: 3, total: "₹10,000", date: "Nov 23, 2025" },
+  { id: "ORD-2950", status: "Delivered", items: 1, total: "₹3,200", date: "Oct 10, 2025" },
 ];
 
 const Profile = () => {

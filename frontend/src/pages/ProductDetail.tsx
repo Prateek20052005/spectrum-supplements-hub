@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Star, ShoppingCart, Heart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
+import { formatINR } from "@/utils/currency";
 
 type Product = {
   _id: string;
@@ -181,7 +182,7 @@ const ProductDetail = () => {
             )}
 
             <p className="text-3xl font-bold text-primary mb-6">
-              ${product.price.toFixed(2)}
+              {formatINR(product.price)}
             </p>
 
             {product.description && (

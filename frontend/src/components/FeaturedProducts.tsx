@@ -8,8 +8,8 @@ const FeaturedProducts = () => {
     {
       id: 1,
       name: "Gold Standard 100% Whey",
-      price: "$59.99",
-      originalPrice: "$79.99",
+      price: 5999,
+      originalPrice: 7999,
       rating: 4.8,
       reviews: 1247,
       image: heroProduct1,
@@ -19,8 +19,8 @@ const FeaturedProducts = () => {
     {
       id: 2,
       name: "C4 Original Pre-Workout",
-      price: "$39.99",
-      originalPrice: "$49.99",
+      price: 3999,
+      originalPrice: 4999,
       rating: 4.9,
       reviews: 892,
       image: heroProduct2,
@@ -30,8 +30,8 @@ const FeaturedProducts = () => {
     {
       id: 3,
       name: "Micronized Creatine",
-      price: "$24.99",
-      originalPrice: "$34.99",
+      price: 2499,
+      originalPrice: 3499,
       rating: 4.7,
       reviews: 634,
       image: heroProduct3,
@@ -41,8 +41,8 @@ const FeaturedProducts = () => {
     {
       id: 4,
       name: "Platinum Whey Isolate",
-      price: "$69.99",
-      originalPrice: "$89.99",
+      price: 6999,
+      originalPrice: 8999,
       rating: 4.9,
       reviews: 523,
       image: heroProduct1,
@@ -51,7 +51,7 @@ const FeaturedProducts = () => {
     {
       id: 5,
       name: "Extreme Energy Booster",
-      price: "$44.99",
+      price: 4499,
       rating: 4.6,
       reviews: 387,
       image: heroProduct2,
@@ -61,8 +61,8 @@ const FeaturedProducts = () => {
     {
       id: 6,
       name: "Pure Creatine HCl",
-      price: "$29.99",
-      originalPrice: "$39.99",
+      price: 2999,
+      originalPrice: 3999,
       rating: 4.8,
       reviews: 298,
       image: heroProduct3,

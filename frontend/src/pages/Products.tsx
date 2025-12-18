@@ -97,7 +97,7 @@ const Products = () => {
                 _id={product._id}
                 id={product._id}
                 name={product.name}
-                price={`$${product.price.toFixed(2)}`}
+                price={product.price}
                 rating={product.rating || 0}
                 reviews={product.reviews?.length || 0}
                 image={product.images?.[0] || "/placeholder.svg"}

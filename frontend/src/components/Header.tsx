@@ -49,7 +49,7 @@ const Header = () => {
       {/* Top Banner */}
       <div className="bg-accent text-accent-foreground py-2 px-4">
         <div className="container mx-auto text-center text-sm font-medium">
-          🎁 FREE protein shaker with orders over $50! 💪
+          🎁 FREE protein shaker with orders over ₹4,000! 💪
         </div>
       </div>
       

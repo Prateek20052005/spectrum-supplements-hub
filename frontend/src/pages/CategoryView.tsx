@@ -7,10 +7,10 @@ const CategoryView = () => {
   const { id } = useParams();
 
   const products = [
-    { id: 1, name: "Premium Whey Protein", price: "$49.99", rating: 4.8, reviews: 128, image: "/placeholder.svg", category: "Whey Protein" },
-    { id: 2, name: "Isolate Whey Protein", price: "$59.99", rating: 4.9, reviews: 95, image: "/placeholder.svg", category: "Whey Protein" },
-    { id: 3, name: "Whey Protein Blend", price: "$44.99", rating: 4.7, reviews: 76, image: "/placeholder.svg", category: "Whey Protein" },
-    { id: 4, name: "Grass-Fed Whey", price: "$54.99", rating: 4.8, reviews: 103, image: "/placeholder.svg", category: "Whey Protein" },
+    { id: 1, name: "Premium Whey Protein", price: 4999, rating: 4.8, reviews: 128, image: "/placeholder.svg", category: "Whey Protein" },
+    { id: 2, name: "Isolate Whey Protein", price: 5999, rating: 4.9, reviews: 95, image: "/placeholder.svg", category: "Whey Protein" },
+    { id: 3, name: "Whey Protein Blend", price: 4499, rating: 4.7, reviews: 76, image: "/placeholder.svg", category: "Whey Protein" },
+    { id: 4, name: "Grass-Fed Whey", price: 5499, rating: 4.8, reviews: 103, image: "/placeholder.svg", category: "Whey Protein" },
   ];
 
   return (

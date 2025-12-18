@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { X, Plus, Edit, Trash2, Package, User, DollarSign } from "lucide-react";
+import { formatINR } from "@/utils/currency";
 
 type Product = {
   _id?: string;
@@ -321,7 +322,7 @@ const Admin = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <Label htmlFor="price">Price ($) *</Label>
+                        <Label htmlFor="price">Price (₹) *</Label>
                         <Input
                           id="price"
                           type="number"
@@ -458,7 +459,7 @@ const Admin = () => {
                         <div className="flex-1 space-y-1 min-w-0">
                           <p className="font-medium text-sm truncate">{p.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            ${p.price.toFixed(2)} · {p.brand || "No brand"} · Stock: {p.stock ?? 0}
+                            {formatINR(p.price)} · {p.brand || "No brand"} · Stock: {p.stock ?? 0}
                           </p>
                           {p.category && (
                             <Badge variant="outline" className="text-xs">
@@ -540,7 +541,7 @@ const Admin = () => {
                               </div>
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <DollarSign className="w-3 h-3" />
-                                <span>${total.toFixed(2)}</span>
+                                <span>{formatINR(total)}</span>
                                 {order.items && order.items.length > 0 && (
                                   <span>· {order.items.length} item(s)</span>
                                 )}

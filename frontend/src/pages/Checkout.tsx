@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2, CreditCard, Package, CheckCircle } from "lucide-react";
+import { formatINR } from "@/utils/currency";
 
 type CartItem = {
   productId: string;
@@ -91,8 +92,8 @@ const Checkout = () => {
         // Calculate order summary
         const subtotal = cart.items.reduce((sum: number, item: any) => 
           sum + (item.productId.price * item.quantity), 0);
-        const shipping = subtotal > 0 ? 5.99 : 0; // Free shipping for orders over $50
-        const tax = subtotal * 0.08; // Example tax calculation
+        const shipping = subtotal > 0 ? 500 : 0;
+        const tax = subtotal * 0.18;
         const total = subtotal + shipping + tax;
 
         setOrder({
@@ -338,26 +339,26 @@ const Checkout = () => {
                             <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
                           </div>
                         </div>
-                        <p className="font-medium">${(item.price * item.quantity).toFixed(2)}</p>
+                        <p className="font-medium">{formatINR(item.price * item.quantity)}</p>
                       </div>
                     ))}
 
                     <div className="border-t pt-4 space-y-2">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Subtotal</span>
-                        <span>${order.subtotal.toFixed(2)}</span>
+                        <span>{formatINR(order.subtotal)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Shipping</span>
-                        <span>${order.shipping.toFixed(2)}</span>
+                        <span>{formatINR(order.shipping)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Tax</span>
-                        <span>${order.tax.toFixed(2)}</span>
+                        <span>{formatINR(order.tax)}</span>
                       </div>
                       <div className="flex justify-between font-bold text-lg pt-2">
                         <span>Total</span>
-                        <span>${order.total.toFixed(2)}</span>
+                        <span>{formatINR(order.total)}</span>
                       </div>
                     </div>
 

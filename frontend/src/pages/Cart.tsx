@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Trash2, Plus, Minus, ShoppingCart, ArrowRight } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useCart } from "@/contexts/CartContext";
+import { formatINR, formatNumberINR } from "@/utils/currency";
 
 type CartItem = {
   productId: {
@@ -166,8 +167,8 @@ const Cart = () => {
     (acc, item) => acc + (item.productId?.price || 0) * item.quantity,
     0
   );
-  const shipping = subtotal > 0 ? 5.99 : 0;
-  const tax = subtotal * 0.08;
+  const shipping = subtotal > 0 ? 500 : 0; // Flat ₹500 shipping
+  const tax = subtotal * 0.18; // 18% GST
   const total = subtotal + shipping + tax;
 
   if (loading) {
@@ -207,7 +208,7 @@ const Cart = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-4 py-12">
-        <h1 className="text-4xl font-bold mb-8">Shopping Cart</h1>
+        <h1 className="text-4xl font-bold mb-2">Shopping Cart</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-4">
@@ -229,7 +230,7 @@ const Cart = () => {
                         {product?.name || "Unknown Product"}
                       </h3>
                       <p className="text-primary font-bold mb-4">
-                        ${product?.price?.toFixed(2) || "0.00"}
+                        {formatINR(product?.price || 0)}
                       </p>
 
                       <div className="flex items-center gap-2">
@@ -267,7 +268,7 @@ const Cart = () => {
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
                       <p className="font-bold">
-                        ${((product?.price || 0) * item.quantity).toFixed(2)}
+                        {formatINR((product?.price || 0) * item.quantity)}
                       </p>
                     </div>
                   </div>
@@ -283,19 +284,19 @@ const Cart = () => {
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span>${subtotal.toFixed(2)}</span>
+                  <span>{formatINR(subtotal)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Shipping</span>
-                  <span>${shipping.toFixed(2)}</span>
+                  <span>{formatINR(shipping)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Tax</span>
-                  <span>${tax.toFixed(2)}</span>
+                  <span>{formatINR(tax)}</span>
                 </div>
                 <div className="border-t pt-3 flex justify-between font-bold text-lg">
                   <span>Total</span>
-                  <span>${total.toFixed(2)}</span>
+                  <span>{formatINR(total)}</span>
                 </div>
               </div>
 
