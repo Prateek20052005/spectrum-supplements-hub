@@ -22,6 +22,7 @@ type Product = {
   description?: string;
   stock?: number;
   images?: string[];
+  flavours?: string[];
 };
 
 type Order = {
@@ -56,6 +57,7 @@ const Admin = () => {
     description: "",
     stock: 0,
     images: [],
+    flavours: [],
     imageUrls: "",
   });
 
@@ -140,6 +142,14 @@ const Admin = () => {
     setForm({ ...form, imageUrls: value, images: urls });
   };
 
+  const handleFlavoursChange = (value: string) => {
+    const flavours = value
+      .split(/[\n,]/)
+      .map((f) => f.trim())
+      .filter((f) => f.length > 0);
+    setForm((prev) => ({ ...prev, flavours }));
+  };
+
   const handleSubmitProduct = async () => {
     if (!form.name || !form.price) {
       toast({
@@ -165,6 +175,7 @@ const Admin = () => {
         description: form.description || undefined,
         stock: form.stock || 0,
         images: form.images || [],
+        flavours: form.flavours || [],
       };
 
       const res = await fetch(url, {
@@ -191,6 +202,7 @@ const Admin = () => {
         description: "",
         stock: 0,
         images: [],
+        flavours: [],
         imageUrls: "",
       });
       setEditingProduct(null);
@@ -214,6 +226,7 @@ const Admin = () => {
       description: product.description || "",
       stock: product.stock || 0,
       images: product.images || [],
+      flavours: product.flavours || [],
       imageUrls: product.images?.join(", ") || "",
     });
   };
@@ -418,6 +431,20 @@ const Admin = () => {
                         </div>
                       )}
                     </div>
+
+                    <div className="space-y-1">
+                      <Label htmlFor="flavours">Flavours</Label>
+                      <Textarea
+                        id="flavours"
+                        value={(form.flavours || []).join(", ")}
+                        onChange={(e) => handleFlavoursChange(e.target.value)}
+                        placeholder="Enter flavours separated by commas or new lines"
+                        rows={2}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Separate multiple flavours with commas or new lines
+                      </p>
+                    </div>
                     <div className="flex gap-2">
                       <Button onClick={handleSubmitProduct} className="flex-1">
                         {editingProduct ? "Update Product" : "Create Product"}
@@ -436,6 +463,7 @@ const Admin = () => {
                               description: "",
                               stock: 0,
                               images: [],
+                              flavours: [],
                               imageUrls: "",
                             });
                           }}
