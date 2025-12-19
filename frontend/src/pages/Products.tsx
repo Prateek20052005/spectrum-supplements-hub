@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
@@ -19,10 +20,24 @@ type Product = {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
 
 const Products = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("featured");
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const keyword = params.get("keyword") || "";
+    setSearchQuery(keyword);
+  }, [location.search]);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    const next = value.trim();
+    navigate(next ? `/products?keyword=${encodeURIComponent(next)}` : "/products", { replace: true });
+  };
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -69,7 +84,7 @@ const Products = () => {
           <Input
             placeholder="Search products..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="md:w-96"
           />
           <Select value={sortBy} onValueChange={setSortBy}>
