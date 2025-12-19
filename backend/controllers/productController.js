@@ -1,6 +1,7 @@
 // backend/controllers/productController.js
 import asyncHandler from "express-async-handler";
 import Product from "../models/product.js";
+import Order from "../models/order.js";
 
 /**
  * @desc   Get all products (with optional search & category filter)
@@ -39,7 +40,7 @@ export const getProductById = asyncHandler(async (req, res) => {
  * @access Private/Admin
  */
 export const createProduct = asyncHandler(async (req, res) => {
-  const { name, brand, category, description, price, stock, images } = req.body;
+  const { name, brand, category, description, price, stock, images, flavours } = req.body;
   const product = new Product({
     name,
     brand,
@@ -48,6 +49,14 @@ export const createProduct = asyncHandler(async (req, res) => {
     price,
     stock,
     images,
+    flavours: Array.isArray(flavours)
+      ? flavours
+      : typeof flavours === "string"
+        ? flavours
+            .split(/[\n,]/)
+            .map((f) => f.trim())
+            .filter(Boolean)
+        : [],
   });
   const created = await product.save();
   res.status(201).json(created);
@@ -59,7 +68,7 @@ export const createProduct = asyncHandler(async (req, res) => {
  * @access Private/Admin
  */
 export const updateProduct = asyncHandler(async (req, res) => {
-  const { name, brand, category, description, price, stock, images } = req.body;
+  const { name, brand, category, description, price, stock, images, flavours } = req.body;
   const product = await Product.findById(req.params.id);
   if (!product) return res.status(404).json({ message: "Product not found" });
 
@@ -70,9 +79,43 @@ export const updateProduct = asyncHandler(async (req, res) => {
   product.price = price ?? product.price;
   product.stock = stock ?? product.stock;
   product.images = images || product.images;
+  if (flavours !== undefined) {
+    product.flavours = Array.isArray(flavours)
+      ? flavours
+      : typeof flavours === "string"
+        ? flavours
+            .split(/[\n,]/)
+            .map((f) => f.trim())
+            .filter(Boolean)
+        : product.flavours;
+  }
 
   const updated = await product.save();
   res.json(updated);
+});
+
+export const canReviewProduct = asyncHandler(async (req, res) => {
+  const product = await Product.findById(req.params.id);
+  if (!product) return res.status(404).json({ message: "Product not found" });
+
+  const hasDeliveredOrder = await Order.exists({
+    userId: req.user._id,
+    orderStatus: "delivered",
+    "items.productId": product._id,
+  });
+
+  const alreadyReviewed = product.reviews.find(
+    (r) => r.userId.toString() === req.user._id.toString()
+  );
+
+  if (alreadyReviewed) {
+    return res.json({ canReview: false, reason: "already_reviewed" });
+  }
+  if (!hasDeliveredOrder) {
+    return res.json({ canReview: false, reason: "not_delivered" });
+  }
+
+  return res.json({ canReview: true });
 });
 
 /**
@@ -97,6 +140,17 @@ export const addProductReview = asyncHandler(async (req, res) => {
   const { rating, comment } = req.body;
   const product = await Product.findById(req.params.id);
   if (!product) return res.status(404).json({ message: "Product not found" });
+
+  const hasDeliveredOrder = await Order.exists({
+    userId: req.user._id,
+    orderStatus: "delivered",
+    "items.productId": product._id,
+  });
+  if (!hasDeliveredOrder) {
+    return res
+      .status(403)
+      .json({ message: "You can only review products from delivered orders" });
+  }
 
   const alreadyReviewed = product.reviews.find(
     (r) => r.userId.toString() === req.user._id.toString()

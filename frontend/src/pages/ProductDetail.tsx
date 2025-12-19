@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -18,7 +18,14 @@ type Product = {
   images?: string[];
   stock?: number;
   rating?: number;
-  reviews?: any[];
+  flavours?: string[];
+  reviews?: Array<{
+    userId?: string;
+    fullName?: string;
+    comment?: string;
+    rating?: number;
+    date?: string;
+  }>;
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
@@ -30,6 +37,22 @@ const ProductDetail = () => {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [canReview, setCanReview] = useState<boolean>(false);
+  const [reviewReason, setReviewReason] = useState<string | null>(null);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+
+  const token = useMemo(() => {
+    try {
+      const userInfoRaw = localStorage.getItem("userInfo");
+      if (!userInfoRaw) return null;
+      const userInfo = JSON.parse(userInfoRaw);
+      return userInfo?.token || null;
+    } catch {
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -55,7 +78,35 @@ const ProductDetail = () => {
     if (id) {
       fetchProduct();
     }
-  }, [id]);
+  }, [id, toast]);
+
+  useEffect(() => {
+    const fetchCanReview = async () => {
+      if (!id || !token) {
+        setCanReview(false);
+        setReviewReason(null);
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/products/${id}/can-review`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          setCanReview(false);
+          setReviewReason(null);
+          return;
+        }
+        setCanReview(!!data?.canReview);
+        setReviewReason(data?.reason || null);
+      } catch {
+        setCanReview(false);
+        setReviewReason(null);
+      }
+    };
+
+    fetchCanReview();
+  }, [id, token]);
 
   const handleAddToCart = async () => {
     if (!product) return;
@@ -114,6 +165,73 @@ const ProductDetail = () => {
     }
   };
 
+  const handleSubmitReview = async () => {
+    if (!id || !token) {
+      toast({
+        variant: "destructive",
+        title: "Please log in",
+        description: "You need to be logged in to leave a review.",
+      });
+      navigate("/login");
+      return;
+    }
+
+    if (!reviewComment.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Missing review",
+        description: "Please enter a review comment.",
+      });
+      return;
+    }
+
+    try {
+      setSubmittingReview(true);
+      const res = await fetch(`${API_BASE_URL}/api/products/${id}/review`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ rating: reviewRating, comment: reviewComment.trim() }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || "Failed to submit review");
+      }
+
+      toast({
+        title: "Review submitted",
+        description: "Thank you for your feedback!",
+      });
+      setReviewComment("");
+
+      const refreshed = await fetch(`${API_BASE_URL}/api/products/${id}`);
+      if (refreshed.ok) {
+        const p = await refreshed.json();
+        setProduct(p);
+      }
+
+      const canRes = await fetch(`${API_BASE_URL}/api/products/${id}/can-review`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const canData = await canRes.json().catch(() => null);
+      if (canRes.ok) {
+        setCanReview(!!canData?.canReview);
+        setReviewReason(canData?.reason || null);
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Review failed",
+        description: error.message || "Could not submit review.",
+      });
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -141,6 +259,12 @@ const ProductDetail = () => {
   const imageUrl = product.images?.[0] || "/placeholder.svg";
   const rating = product.rating || 0;
   const reviewCount = product.reviews?.length || 0;
+  const flavours = (product.flavours || []).filter(Boolean);
+  const reviewsSorted = [...(product.reviews || [])].sort((a, b) => {
+    const da = a?.date ? new Date(a.date).getTime() : 0;
+    const db = b?.date ? new Date(b.date).getTime() : 0;
+    return db - da;
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -222,6 +346,106 @@ const ProductDetail = () => {
                 <Heart className="h-5 w-5" />
               </Button>
             </div>
+
+            {flavours.length > 0 && (
+              <div className="mt-8">
+                <h3 className="font-semibold mb-2">Flavours Available</h3>
+                <div className="flex flex-wrap gap-2">
+                  {flavours.map((f) => (
+                    <Badge key={f} variant="secondary">
+                      {f}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div>
+            <h2 className="text-2xl font-bold mb-4">Reviews</h2>
+            {reviewsSorted.length === 0 ? (
+              <p className="text-muted-foreground">No reviews yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {reviewsSorted.map((r, idx) => (
+                  <div key={`${r.userId || "u"}-${idx}`} className="border rounded-lg p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-semibold">{r.fullName || "Customer"}</p>
+                        {r.date && (
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(r.date).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-4 h-4 ${
+                              i < Math.floor(r.rating || 0)
+                                ? "fill-accent text-accent"
+                                : "text-muted-foreground/30"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    {r.comment && (
+                      <p className="mt-2 text-sm text-muted-foreground">{r.comment}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h2 className="text-2xl font-bold mb-4">Write a Review</h2>
+            {!token ? (
+              <p className="text-muted-foreground">
+                Please log in to write a review.
+              </p>
+            ) : canReview ? (
+              <div className="border rounded-lg p-4 space-y-4">
+                <div>
+                  <p className="text-sm font-medium mb-2">Rating</p>
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4, 5].map((v) => (
+                      <Button
+                        key={v}
+                        type="button"
+                        variant={reviewRating === v ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setReviewRating(v)}
+                      >
+                        {v}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-medium mb-2">Comment</p>
+                  <textarea
+                    className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    placeholder="Share your experience..."
+                  />
+                </div>
+                <Button onClick={handleSubmitReview} disabled={submittingReview}>
+                  {submittingReview ? "Submitting..." : "Submit Review"}
+                </Button>
+              </div>
+            ) : (
+              <p className="text-muted-foreground">
+                {reviewReason === "already_reviewed"
+                  ? "You have already reviewed this product."
+                  : "You can review this product only after your order is delivered."}
+              </p>
+            )}
           </div>
         </div>
       </main>

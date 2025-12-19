@@ -42,6 +42,11 @@ const ProductCard = ({
   // Prioritize _id (MongoDB ObjectId) over id (numeric)
   const productId = _id || (id && typeof id === 'string' && id.length > 10 ? id : null);
 
+  const handleOpenProduct = () => {
+    if (!productId) return;
+    navigate(`/product/${productId}`);
+  };
+
   const handleAddToCart = async () => {
     try {
       const userInfoRaw = localStorage.getItem("userInfo");
@@ -106,7 +111,18 @@ const ProductCard = ({
     }
   };
   return (
-    <div className="bg-card rounded-2xl p-6 shadow-card hover:shadow-product transition-all duration-300 transform hover:-translate-y-2 group">
+    <div
+      className="bg-card rounded-2xl p-6 shadow-card hover:shadow-product transition-all duration-300 transform hover:-translate-y-2 group cursor-pointer"
+      role="button"
+      tabIndex={0}
+      onClick={handleOpenProduct}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleOpenProduct();
+        }
+      }}
+    >
       {/* Product Image */}
       <div className="relative mb-4">
         <img
@@ -123,6 +139,9 @@ const ProductCard = ({
           variant="ghost"
           size="sm"
           className="absolute top-3 right-3 bg-card/80 hover:bg-card shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
         >
           <Heart className="w-4 h-4" />
         </Button>
@@ -172,7 +191,10 @@ const ProductCard = ({
         <Button 
           className="w-full bg-gradient-cta hover:shadow-lg transform hover:scale-105 transition-all"
           size="lg"
-          onClick={handleAddToCart}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleAddToCart();
+          }}
           disabled={adding}
         >
           <ShoppingCart className="w-4 h-4 mr-2" />
