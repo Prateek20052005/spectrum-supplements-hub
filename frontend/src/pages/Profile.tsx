@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Mail, Phone, MapPin, Package, Clock4, LogOut, LogIn, ShieldCheck } from "lucide-react";
+import { Mail, Phone, MapPin, Package, Clock4, LogOut, LogIn, ShieldCheck, Edit } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import EditProfileForm from "@/components/EditProfileForm";
 
 type OrderSummary = {
   id: string;
@@ -19,8 +20,9 @@ type OrderSummary = {
 };
 
 type UserProfile = {
-  fullName?: string;
-  email?: string;
+  _id?: string;
+  fullName: string;
+  email: string;
   phone?: string;
   address?: string;
   currentOrders?: OrderSummary[];
@@ -39,202 +41,380 @@ const sampleOrderHistory: OrderSummary[] = [
 
 const Profile = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const saved = localStorage.getItem("userInfo");
-    if (saved) {
-      try {
-        setUser(JSON.parse(saved));
-      } catch {
-        setUser(null);
-      }
-    }
-  }, []);
-
+  const { toast } = useToast();
+  
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
+  
+  // Get user initials for avatar
   const initials = useMemo(() => {
-    const name = user?.fullName || user?.email;
-    if (!name) return "U";
-    const parts = name.split(" ").filter(Boolean);
-    if (parts.length === 1) return parts[0][0]?.toUpperCase() || "U";
-    return `${parts[0][0]?.toUpperCase() || ""}${parts[1][0]?.toUpperCase() || ""}`;
-  }, [user?.fullName, user?.email]);
-
-  const currentOrders = user?.currentOrders?.length ? user.currentOrders : sampleCurrentOrders;
-  const orderHistory = user?.orderHistory?.length ? user.orderHistory : sampleOrderHistory;
-
+    if (!user) return "";
+    return user.fullName
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  }, [user]);
+  
+  // Fetch user profile data
+  const fetchUserProfile = async () => {
+    try {
+      setIsLoading(true);
+      const saved = localStorage.getItem("userInfo");
+      if (!saved) {
+        setUser(null);
+        return;
+      }
+      
+      const userInfo = JSON.parse(saved);
+      const token = userInfo?.token;
+      
+      if (!token) {
+        setUser(null);
+        return;
+      }
+      
+      // Make API call to get user profile
+      const response = await fetch(`${API_BASE_URL}/api/users/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Token might be expired, log the user out
+          localStorage.removeItem("userInfo");
+          setUser(null);
+          return;
+        }
+        throw new Error('Failed to fetch user profile');
+      }
+      
+      const userData = await response.json();
+      
+      // Update the user state with the fetched data
+      setUser({
+        fullName: userData.fullName,
+        email: userData.email,
+        phone: userData.phone || "",
+        address: userData.address || "",
+        currentOrders: sampleCurrentOrders, // These would come from orders API in a real app
+        orderHistory: sampleOrderHistory    // These would come from orders API in a real app
+      });
+      
+      // Update the stored user info with the latest data
+      const updatedUserInfo = {
+        ...userInfo,
+        name: userData.fullName,
+        email: userData.email,
+        phone: userData.phone,
+        address: userData.address,
+      };
+      
+      localStorage.setItem("userInfo", JSON.stringify(updatedUserInfo));
+      
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to load profile information.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Handle profile update
+  const handleUpdateProfile = async (data: Partial<UserProfile>) => {
+    try {
+      const saved = localStorage.getItem("userInfo");
+      if (!saved) throw new Error("User not authenticated");
+      
+      const userInfo = JSON.parse(saved);
+      const token = userInfo?.token;
+      
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+      
+      // Make API call to update user profile
+      const response = await fetch(`${API_BASE_URL}/api/users/profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update profile');
+      }
+      
+      const updatedUserData = await response.json();
+      
+      // Update local state with the updated user data
+      setUser(prevUser => ({
+        ...prevUser,
+        ...updatedUserData,
+        phone: updatedUserData.phone || prevUser?.phone,
+        address: updatedUserData.address || prevUser?.address,
+      }));
+      
+      // Update stored user info in localStorage
+      const updatedUserInfo = {
+        ...userInfo,
+        name: updatedUserData.fullName,
+        email: updatedUserData.email,
+        phone: updatedUserData.phone || userInfo.phone,
+        address: updatedUserData.address || userInfo.address,
+      };
+      
+      localStorage.setItem("userInfo", JSON.stringify(updatedUserInfo));
+      
+      toast({
+        title: "Success",
+        description: "Profile updated successfully",
+      });
+      
+      return updatedUserData;
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to update profile',
+      });
+      throw error;
+    }
+  };
+  
+  // Handle user logout
   const handleLogout = () => {
     localStorage.removeItem("userInfo");
     setUser(null);
+    navigate('/login');
   };
-
+  
+  // Fetch user data on component mount
+  useEffect(() => {
+    fetchUserProfile();
+  }, []);
+  
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  // Show login prompt if user is not authenticated
   if (!user) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="bg-gradient-to-br from-secondary via-background to-white">
-          <div className="container mx-auto px-4 py-12 flex justify-center">
-            <Card className="w-full max-w-2xl shadow-hero bg-card text-card-foreground">
-              <CardHeader className="space-y-2 text-center">
-                <Badge className="mx-auto w-fit" variant="secondary">
-                  Profile
-                </Badge>
-                <CardTitle className="text-3xl font-semibold">You&apos;re not signed in</CardTitle>
-                <p className="text-muted-foreground">
-                  Access your orders, saved details, and personalized recommendations by signing in
-                  or creating an account.
-                </p>
-              </CardHeader>
-              <CardContent className="flex flex-col sm:flex-row justify-center gap-4">
-                <Button size="lg" onClick={() => navigate("/login")} className="gap-2">
-                  <LogIn className="h-5 w-5" />
-                  Sign in
-                </Button>
-                <Button size="lg" variant="outline" onClick={() => navigate("/register")}>
-                  Create account
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+        <main className="container mx-auto px-4 py-12">
+          <Card className="max-w-md mx-auto">
+            <CardHeader className="text-center space-y-4">
+              <div className="mx-auto bg-muted p-4 rounded-full w-16 h-16 flex items-center justify-center">
+                <LogIn className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <CardTitle>Sign in to view your profile</CardTitle>
+              <p className="text-muted-foreground">
+                Access your orders, saved details, and personalized recommendations
+              </p>
+            </CardHeader>
+            <CardContent className="flex flex-col space-y-4">
+              <Button onClick={() => navigate('/login')}>
+                Sign In
+              </Button>
+              <Button variant="outline" onClick={() => navigate('/register')}>
+                Create Account
+              </Button>
+            </CardContent>
+          </Card>
         </main>
         <Footer />
       </div>
     );
   }
 
+  // Main profile view
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="bg-gradient-to-br from-secondary via-background to-white">
-        <div className="container mx-auto px-4 py-10 space-y-8">
-          <div className="grid gap-6 lg:grid-cols-3">
-            <Card className="shadow-card lg:col-span-1">
-              <CardHeader className="flex flex-col space-y-4">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-14 w-14">
-                    <AvatarFallback className="bg-primary text-primary-foreground text-lg font-semibold">
-                      {initials}
-                    </AvatarFallback>
+      <main className="container mx-auto px-4 py-8">
+        <div className="grid gap-8 md:grid-cols-4">
+          {/* Left sidebar - Profile info */}
+          <div className="md:col-span-1">
+            <Card className="overflow-hidden">
+              <div className="bg-primary p-6 text-center text-white">
+                <div className="mx-auto w-24 h-24 rounded-full bg-white/20 flex items-center justify-center mb-4">
+                  <Avatar className="h-20 w-20 text-2xl">
+                    <AvatarFallback>{initials}</AvatarFallback>
                   </Avatar>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Welcome back</p>
-                    <CardTitle className="text-2xl">{user.fullName || "Guest"}</CardTitle>
-                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Badge variant="secondary" className="capitalize">
-                    Active
-                  </Badge>
-                  <Badge variant="outline" className="gap-2">
-                    <ShieldCheck className="h-4 w-4" />
-                    Secure account
-                  </Badge>
+                <h2 className="text-xl font-semibold">{user.fullName}</h2>
+                <p className="text-sm opacity-80">{user.email}</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-4 bg-white/10 hover:bg-white/20 border-white/20"
+                  onClick={() => setIsEditing(true)}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Profile
+                </Button>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div className="flex items-center space-x-3 text-sm">
+                  <Phone className="h-4 w-4 opacity-60" />
+                  <span>{user.phone || 'Not provided'}</span>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-center gap-3 text-muted-foreground">
-                    <Mail className="h-4 w-4 text-primary" />
-                    <span>{user.email || "Email not added yet"}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-muted-foreground">
-                    <Phone className="h-4 w-4 text-primary" />
-                    <span>{user.phone || "Phone not added yet"}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-muted-foreground">
-                    <MapPin className="h-4 w-4 text-primary" />
-                    <span>{user.address || "Add your shipping address"}</span>
-                  </div>
+                <div className="flex items-start space-x-3 text-sm">
+                  <MapPin className="h-4 w-4 opacity-60 mt-0.5 flex-shrink-0" />
+                  <span>{user.address || 'No address saved'}</span>
                 </div>
-                <Separator />
-                <div className="flex gap-3">
-                  <Button className="flex-1" variant="outline" onClick={handleLogout}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Sign out
+                
+                <div className="pt-4 border-t">
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
                   </Button>
                 </div>
-              </CardContent>
+              </div>
             </Card>
-
-            <div className="lg:col-span-2 space-y-6">
-              <Card className="shadow-card">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-xl">Current orders</CardTitle>
-                    <p className="text-sm text-muted-foreground">Track what&apos;s on the way</p>
+          </div>
+          
+          {/* Main content - Orders */}
+          <div className="md:col-span-3 space-y-6">
+            {/* Current Orders */}
+            {user.currentOrders && user.currentOrders.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Current Orders</CardTitle>
+                    <Badge variant="outline" className="bg-primary/10 text-primary">
+                      {user.currentOrders.length} Active
+                    </Badge>
                   </div>
-                  <Badge variant="secondary">{currentOrders.length} active</Badge>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {currentOrders.length ? (
-                    currentOrders.map((order) => (
-                      <div key={order.id} className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                          <div className="flex items-center gap-3">
-                            <Package className="h-5 w-5 text-primary" />
-                            <div>
-                              <p className="font-semibold">{order.id}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {order.items} item{order.items !== 1 ? "s" : ""} · {order.total}
-                              </p>
-                            </div>
+                <CardContent>
+                  <div className="space-y-4">
+                    {user.currentOrders.map((order) => (
+                      <div key={order.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-medium">Order #{order.id}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {order.items} {order.items === 1 ? 'item' : 'items'} • {order.total}
+                            </p>
+                            {order.eta && (
+                              <div className="flex items-center mt-2 text-sm">
+                                <Clock4 className="h-4 w-4 mr-2 text-amber-500" />
+                                <span>{order.eta}</span>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex flex-col items-start md:items-end gap-1">
-                            <Badge
-                              variant={order.status === "Delivered" ? "secondary" : "outline"}
-                              className="capitalize"
-                            >
-                              {order.status}
-                            </Badge>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Clock4 className="h-4 w-4" />
-                              <span>{order.eta || "Delivery details coming soon"}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No active orders right now.</p>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-card">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-xl">Order history</CardTitle>
-                    <p className="text-sm text-muted-foreground">Past purchases and receipts</p>
-                  </div>
-                  <Badge variant="outline">{orderHistory.length} completed</Badge>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {orderHistory.length ? (
-                    orderHistory.map((order) => (
-                      <div key={order.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
-                        <div className="space-y-1">
-                          <p className="font-semibold">{order.id}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {order.items} item{order.items !== 1 ? "s" : ""} · {order.total}
-                          </p>
-                        </div>
-                        <div className="text-right space-y-1">
-                          <Badge variant="secondary" className="capitalize">
+                          <Badge variant={order.status === 'Shipped' ? 'default' : 'secondary'}>
                             {order.status}
                           </Badge>
-                          <p className="text-xs text-muted-foreground">{order.date || "Date unavailable"}</p>
                         </div>
                       </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No previous orders yet.</p>
-                  )}
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
-            </div>
+            )}
+            
+            {/* Order History */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Order History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {user.orderHistory && user.orderHistory.length > 0 ? (
+                  <div className="space-y-4">
+                    {user.orderHistory.map((order) => (
+                      <div key={order.id} className="border-b pb-4 last:border-0 last:pb-0">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h4 className="font-medium">Order #{order.id}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {order.date} • {order.items} {order.items === 1 ? 'item' : 'items'}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">{order.total}</p>
+                            <Badge variant={order.status === 'Delivered' ? 'default' : 'outline'} className="mt-1">
+                              {order.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium">No order history</h3>
+                    <p className="text-muted-foreground mt-1">Your completed orders will appear here</p>
+                    <Button className="mt-4" onClick={() => navigate('/products')}>
+                      Start Shopping
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </main>
+      
+      {/* Edit Profile Modal */}
+      {isEditing && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle>Edit Profile</CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => setIsEditing(false)}
+                  className="text-muted-foreground"
+                >
+                  ✕
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <EditProfileForm 
+                user={user} 
+                onUpdate={async (data) => {
+                  await handleUpdateProfile(data);
+                  setIsEditing(false);
+                }} 
+                onCancel={() => setIsEditing(false)} 
+              />
+            </CardContent>
+          </Card>
+        </div>
+      )}
+      
       <Footer />
     </div>
   );
