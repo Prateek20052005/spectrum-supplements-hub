@@ -16,6 +16,7 @@ import Checkout from "@/pages/Checkout";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import Profile from "@/pages/Profile";
+import OrderDetail from "@/pages/OrderDetail";
 import Admin from "@/pages/Admin";
 import NotFound from "@/pages/NotFound";
 
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/order/:id" element={<OrderDetail />} />
             <Route path="/admin" element={<Admin />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

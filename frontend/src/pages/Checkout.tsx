@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type SyntheticEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/components/ui/use-toast";
 import Header from "@/components/Header";
@@ -8,8 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, CreditCard, Package, CheckCircle } from "lucide-react";
+import { Loader2, Package, CheckCircle, Smartphone } from "lucide-react";
 import { formatINR } from "@/utils/currency";
+import { type Order as ApiOrder, type CreateOrderRequest } from "@/types/order";
 
 type CartItem = {
   productId: string;
@@ -33,7 +34,7 @@ type UserProfile = {
   };
 };
 
-type Order = {
+type CheckoutOrder = {
   items: CartItem[];
   total: number;
   subtotal: number;
@@ -54,8 +55,9 @@ const Checkout = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [order, setOrder] = useState<Order | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState('credit-card');
+  const [order, setOrder] = useState<CheckoutOrder | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState('upi');
+  const [showUpiPayment, setShowUpiPayment] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -224,8 +226,8 @@ const Checkout = () => {
     };
 
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: SyntheticEvent) => {
+    e?.preventDefault();
     if (!order) return;
 
     const headers = getAuthHeaders();
@@ -263,28 +265,29 @@ const Checkout = () => {
 
     setProcessing(true);
     try {
+      const orderData: CreateOrderRequest = {
+        items: order.items.map((item) => ({
+          productId: item.productId,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+        })),
+        totalAmount: order.total,
+        paymentMethod,
+      };
+
       const response = await fetch(`${API_BASE_URL}/api/orders`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          orderItems: order.items.map(item => ({
-            product: item.productId,
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
-          })),
-          paymentMethod,
-          itemsPrice: order.subtotal,
-          taxPrice: order.tax,
-          shippingPrice: order.shipping,
-          totalPrice: order.total,
-          shippingAddress: user?.shippingAddress || shippingAddress,
-        }),
+        body: JSON.stringify(orderData),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to place order');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to place order');
       }
+
+      const createdOrder: ApiOrder = await response.json();
 
       // Clear the cart
       await fetch(`${API_BASE_URL}/api/cart`, {
@@ -293,12 +296,23 @@ const Checkout = () => {
       });
 
       setOrderSuccess(true);
-      // You might want to redirect to order confirmation page
-      // navigate(`/order/${data._id}`);
+      
+      // Show success message with order details
+      toast({
+        title: "Order Placed Successfully!",
+        description: `Order #${createdOrder._id.slice(-6)} has been placed. You will receive updates on your email.`,
+      });
+
+      // Redirect to order confirmation page after a short delay
+      setTimeout(() => {
+        navigate(`/profile`);
+      }, 2000);
+      
     } catch (error: any) {
+      console.error('Order placement error:', error);
       toast({
         variant: "destructive",
-        title: "Error",
+        title: "Order Failed",
         description: error.message || "Failed to place order. Please try again.",
       });
     } finally {
@@ -335,7 +349,7 @@ const Checkout = () => {
               <Button onClick={() => navigate('/products')}>
                 Continue Shopping
               </Button>
-              <Button variant="outline" onClick={() => navigate('/profile/orders')}>
+              <Button variant="outline" onClick={() => navigate('/profile')}>
                 View Orders
               </Button>
             </div>
@@ -490,28 +504,136 @@ const Checkout = () => {
                   <CardTitle className="text-lg">Payment Method</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <RadioGroup 
-                    value={paymentMethod} 
-                    onValueChange={setPaymentMethod}
-                    className="space-y-4"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <RadioGroupItem value="credit-card" id="credit-card" />
-                      <Label htmlFor="credit-card" className="flex items-center gap-2">
-                        <CreditCard className="h-5 w-5" />
-                        Credit Card
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <RadioGroupItem value="paypal" id="paypal" />
-                      <Label htmlFor="paypal">PayPal</Label>
-                    </div>
-                  </RadioGroup>
+                  <div className="space-y-4">
+                    <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-4">
+                      <div
+                        className={`p-4 border rounded-lg cursor-pointer ${paymentMethod === 'upi' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}
+                        onClick={() => setPaymentMethod('upi')}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className={`p-1 rounded-full ${paymentMethod === 'upi' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                            <Smartphone className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-base font-medium">Pay with UPI</Label>
+                              {paymentMethod === 'upi' && (
+                                <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">Recommended</span>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Fast and secure UPI payment
+                            </p>
+                          </div>
+                          <RadioGroupItem
+                            value="upi"
+                            id="upi"
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-5 w-5 text-primary"
+                          />
+                        </div>
+                      </div>
+
+                      <div
+                        className={`p-4 border rounded-lg cursor-pointer ${paymentMethod === 'cod' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}
+                        onClick={() => setPaymentMethod('cod')}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className={`p-1 rounded-full ${paymentMethod === 'cod' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                            <Package className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1">
+                            <Label className="text-base font-medium">Cash on Delivery</Label>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Pay when you receive your order
+                            </p>
+                          </div>
+                          <RadioGroupItem
+                            value="cod"
+                            id="cod"
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-5 w-5 text-primary"
+                          />
+                        </div>
+                      </div>
+                    </RadioGroup>
+
+                    {paymentMethod === 'upi' && (
+                      <div className="p-4 border rounded-lg bg-muted/10">
+                        {!showUpiPayment ? (
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <h4 className="font-medium">Complete your UPI Payment</h4>
+                              <p className="text-sm text-muted-foreground">
+                                You will be redirected to your UPI app to complete the payment of {formatINR(order.total)}
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              className="w-full"
+                              onClick={() => {
+                                const amount = Number(order.total).toFixed(2);
+                                const upiUrl = `upi://pay?pa=your-merchant-vpa@upi&pn=Spectrum%20Supplies&am=${amount}&cu=INR&tn=Spectrum%20Supplies%20Order`;
+                                window.location.href = upiUrl;
+                              }}
+                            >
+                              Open UPI App
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                              If your UPI app didn’t open, tap below.
+                            </p>
+                            <Button
+                              type="button"
+                              className="w-full"
+                              onClick={() => {
+                                const amount = Number(order.total).toFixed(2);
+                                const upiUrl = `upi://pay?pa=your-merchant-vpa@upi&pn=Spectrum%20Supplies&am=${amount}&cu=INR&tn=Spectrum%20Supplies%20Order`;
+                                window.location.href = upiUrl;
+                              }}
+                            >
+                              Try Opening UPI Again
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => setShowUpiPayment(false)}
+                            >
+                              Back
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {paymentMethod === 'cod' && (
+                      <div className="p-4 border rounded-lg bg-muted/10">
+                        <div className="flex items-start space-x-3">
+                          <div className="p-1.5 rounded-full bg-primary/10 text-primary mt-0.5">
+                            <Package className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className="font-medium">Pay with Cash on Delivery</p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Pay when you receive your order. No additional charges.
+                            </p>
+                            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-100 rounded-md">
+                              <p className="text-sm text-yellow-700">
+                                Please keep the exact amount ready for the delivery person.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Order Summary */}
             <div className="space-y-6">
               <Card>
                 <CardHeader>
@@ -523,9 +645,9 @@ const Checkout = () => {
                       <div key={item.productId} className="flex justify-between items-center">
                         <div className="flex items-center space-x-4">
                           {item.image && (
-                            <img 
-                              src={item.image} 
-                              alt={item.name} 
+                            <img
+                              src={item.image}
+                              alt={item.name}
                               className="h-16 w-16 rounded-md object-cover"
                             />
                           )}
@@ -557,35 +679,22 @@ const Checkout = () => {
                       </div>
                     </div>
 
-                    <Button 
+                    <Button
+                      type="button"
                       onClick={handleSubmit}
                       disabled={processing}
-                      className="w-full mt-4"
+                      className="w-full"
                     >
                       {processing ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <span className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
                           Processing...
-                        </>
+                        </span>
                       ) : (
                         'Place Order'
                       )}
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="bg-muted/50">
-                  <div className="flex items-center space-x-2">
-                    <Package className="h-5 w-5" />
-                    <CardTitle className="text-lg">Shipping Information</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Orders are typically processed within 1-2 business days. You will receive a confirmation email with tracking information once your order ships.
-                  </p>
                 </CardContent>
               </Card>
             </div>

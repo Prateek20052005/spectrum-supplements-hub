@@ -1,14 +1,13 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/components/ui/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Mail, Phone, MapPin, Package, Clock4, LogOut, LogIn, ShieldCheck, Edit } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
-import EditProfileForm from "@/components/EditProfileForm";
+import { Mail, Phone, MapPin, Package, Clock4, LogOut, LogIn, ShieldCheck } from "lucide-react";
 
 type OrderSummary = {
   id: string;
@@ -20,183 +19,39 @@ type OrderSummary = {
 };
 
 type UserProfile = {
-  _id?: string;
-  fullName: string;
-  email: string;
+  fullName?: string;
+  email?: string;
   phone?: string;
   address?: string;
-  currentOrders?: OrderSummary[];
-  orderHistory?: OrderSummary[];
+  role?: string;
 };
-
-const sampleCurrentOrders: OrderSummary[] = [
-  { id: "ORD-3012", status: "Preparing", items: 2, total: "₹7,200", eta: "Arrives in 2-3 days" },
-  { id: "ORD-3005", status: "Shipped", items: 1, total: "₹3,500", eta: "On the way" },
-];
-
-const sampleOrderHistory: OrderSummary[] = [
-  { id: "ORD-2988", status: "Delivered", items: 3, total: "₹10,000", date: "Nov 23, 2025" },
-  { id: "ORD-2950", status: "Delivered", items: 1, total: "₹3,200", date: "Oct 10, 2025" },
-];
 
 const Profile = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
-  const { toast } = useToast();
-  
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
-  
-  // Get user initials for avatar
+
+  useEffect(() => {
+    const saved = localStorage.getItem("userInfo");
+    if (saved) {
+      try {
+        setUser(JSON.parse(saved));
+      } catch {
+        setUser(null);
+      }
+    }
+  }, []);
+
   const initials = useMemo(() => {
-    if (!user) return "";
-    return user.fullName
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  }, [user]);
-  
-  // Fetch user profile data
-  const fetchUserProfile = async () => {
-    try {
-      setIsLoading(true);
-      const saved = localStorage.getItem("userInfo");
-      if (!saved) {
-        setUser(null);
-        return;
-      }
-      
-      const userInfo = JSON.parse(saved);
-      const token = userInfo?.token;
-      
-      if (!token) {
-        setUser(null);
-        return;
-      }
-      
-      // Make API call to get user profile
-      const response = await fetch(`${API_BASE_URL}/api/users/profile`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Token might be expired, log the user out
-          localStorage.removeItem("userInfo");
-          setUser(null);
-          return;
-        }
-        throw new Error('Failed to fetch user profile');
-      }
-      
-      const userData = await response.json();
-      
-      // Update the user state with the fetched data
-      setUser({
-        fullName: userData.fullName,
-        email: userData.email,
-        phone: userData.phone || "",
-        address: userData.address || "",
-        currentOrders: sampleCurrentOrders, // These would come from orders API in a real app
-        orderHistory: sampleOrderHistory    // These would come from orders API in a real app
-      });
-      
-      // Update the stored user info with the latest data
-      const updatedUserInfo = {
-        ...userInfo,
-        name: userData.fullName,
-        email: userData.email,
-        phone: userData.phone,
-        address: userData.address,
-      };
-      
-      localStorage.setItem("userInfo", JSON.stringify(updatedUserInfo));
-      
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to load profile information.",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Handle profile update
-  const handleUpdateProfile = async (data: Partial<UserProfile>) => {
-    try {
-      const saved = localStorage.getItem("userInfo");
-      if (!saved) throw new Error("User not authenticated");
-      
-      const userInfo = JSON.parse(saved);
-      const token = userInfo?.token;
-      
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
-      
-      // Make API call to update user profile
-      const response = await fetch(`${API_BASE_URL}/api/users/profile`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update profile');
-      }
-      
-      const updatedUserData = await response.json();
-      
-      // Update local state with the updated user data
-      setUser(prevUser => ({
-        ...prevUser,
-        ...updatedUserData,
-        phone: updatedUserData.phone || prevUser?.phone,
-        address: updatedUserData.address || prevUser?.address,
-      }));
-      
-      // Update stored user info in localStorage
-      const updatedUserInfo = {
-        ...userInfo,
-        name: updatedUserData.fullName,
-        email: updatedUserData.email,
-        phone: updatedUserData.phone || userInfo.phone,
-        address: updatedUserData.address || userInfo.address,
-      };
-      
-      localStorage.setItem("userInfo", JSON.stringify(updatedUserInfo));
-      
-      toast({
-        title: "Success",
-        description: "Profile updated successfully",
-      });
-      
-      return updatedUserData;
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error instanceof Error ? error.message : 'Failed to update profile',
-      });
-      throw error;
-    }
-  };
-  
-  // Handle user logout
+    const name = user?.fullName || user?.email;
+    if (!name) return "U";
+    const parts = name.split(" ").filter(Boolean);
+    if (parts.length === 1) return parts[0][0]?.toUpperCase() || "U";
+    return `${parts[0][0]?.toUpperCase() || ""}${parts[1][0]?.toUpperCase() || ""}`;
+  }, [user?.fullName, user?.email]);
+
+  const currentOrders = user?.currentOrders?.length ? user.currentOrders : sampleCurrentOrders;
+  const orderHistory = user?.orderHistory?.length ? user.orderHistory : sampleOrderHistory;
+
   const handleLogout = () => {
     localStorage.removeItem("userInfo");
     setUser(null);
@@ -313,57 +168,62 @@ const Profile = () => {
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {user.currentOrders.map((order) => (
-                      <div key={order.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-medium">Order #{order.id}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              {order.items} {order.items === 1 ? 'item' : 'items'} • {order.total}
-                            </p>
-                            {order.eta && (
-                              <div className="flex items-center mt-2 text-sm">
-                                <Clock4 className="h-4 w-4 mr-2 text-amber-500" />
-                                <span>{order.eta}</span>
-                              </div>
-                            )}
+                <CardContent className="space-y-4">
+                  {currentOrders.length ? (
+                    currentOrders.map((order) => (
+                      <div key={order.id} className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                          <div className="flex items-center gap-3">
+                            <Package className="h-5 w-5 text-primary" />
+                            <div>
+                              <p className="font-semibold">{order.id}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {order.items} item{order.items !== 1 ? "s" : ""} · {order.total}
+                              </p>
+                            </div>
                           </div>
-                          <Badge variant={order.status === 'Shipped' ? 'default' : 'secondary'}>
-                            {order.status}
-                          </Badge>
+                          <div className="flex flex-col items-start md:items-end gap-1">
+                            <Badge
+                              variant={order.status === "Delivered" ? "secondary" : "outline"}
+                              className="capitalize"
+                            >
+                              {order.status}
+                            </Badge>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Clock4 className="h-4 w-4" />
+                              <span>{order.eta || "Delivery details coming soon"}</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ))}
                   </div>
                 </CardContent>
               </Card>
-            )}
-            
-            {/* Order History */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Order History</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {user.orderHistory && user.orderHistory.length > 0 ? (
-                  <div className="space-y-4">
-                    {user.orderHistory.map((order) => (
-                      <div key={order.id} className="border-b pb-4 last:border-0 last:pb-0">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h4 className="font-medium">Order #{order.id}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              {order.date} • {order.items} {order.items === 1 ? 'item' : 'items'}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium">{order.total}</p>
-                            <Badge variant={order.status === 'Delivered' ? 'default' : 'outline'} className="mt-1">
-                              {order.status}
-                            </Badge>
-                          </div>
+
+              <Card className="shadow-card">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl">Order history</CardTitle>
+                    <p className="text-sm text-muted-foreground">Past purchases and receipts</p>
+                  </div>
+                  <Badge variant="outline">{orderHistory.length} completed</Badge>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {orderHistory.length ? (
+                    orderHistory.map((order) => (
+                      <div key={order.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
+                        <div className="space-y-1">
+                          <p className="font-semibold">{order.id}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {order.items} item{order.items !== 1 ? "s" : ""} · {order.total}
+                          </p>
+                        </div>
+                        <div className="text-right space-y-1">
+                          <Badge variant="secondary" className="capitalize">
+                            {order.status}
+                          </Badge>
+                          <p className="text-xs text-muted-foreground">{order.date || "Date unavailable"}</p>
                         </div>
                       </div>
                     ))}
