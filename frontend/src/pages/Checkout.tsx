@@ -18,6 +18,7 @@ type CartItem = {
   price: number;
   quantity: number;
   image?: string;
+  flavour?: string | null;
 };
 
 type UserProfile = {
@@ -238,6 +239,7 @@ const Checkout = () => {
             price: item.productId.price,
             quantity: item.quantity,
             image: item.productId.images?.[0],
+            flavour: item.flavour || null,
           })),
           subtotal,
           shipping,
@@ -318,6 +320,7 @@ const Checkout = () => {
         items: order.items.map((item) => ({
           productId: item.productId,
           name: item.name,
+          flavour: item.flavour || undefined,
           price: item.price,
           quantity: item.quantity,
         })),

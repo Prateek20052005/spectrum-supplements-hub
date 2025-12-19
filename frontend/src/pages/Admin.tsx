@@ -57,6 +57,7 @@ const Admin = () => {
   const [loadingOrders, setLoadingOrders] = useState(false);
 
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [flavoursText, setFlavoursText] = useState("");
   const [form, setForm] = useState<Product & { imageUrls: string }>({
     name: "",
     price: 0,
@@ -176,12 +177,11 @@ const Admin = () => {
     setForm({ ...form, imageUrls: value, images: urls });
   };
 
-  const handleFlavoursChange = (value: string) => {
-    const flavours = value
+  const parseFlavours = (value: string) => {
+    return value
       .split(/[\n,]/)
       .map((f) => f.trim())
       .filter((f) => f.length > 0);
-    setForm((prev) => ({ ...prev, flavours }));
   };
 
   const handleSubmitProduct = async () => {
@@ -193,6 +193,8 @@ const Admin = () => {
       });
       return;
     }
+
+    const flavours = parseFlavours(flavoursText);
 
     try {
       const method = editingProduct?._id ? "PUT" : "POST";
@@ -209,7 +211,7 @@ const Admin = () => {
         description: form.description || undefined,
         stock: form.stock || 0,
         images: form.images || [],
-        flavours: form.flavours || [],
+        flavours,
       };
 
       const res = await fetch(url, {
@@ -239,6 +241,7 @@ const Admin = () => {
         flavours: [],
         imageUrls: "",
       });
+      setFlavoursText("");
       setEditingProduct(null);
       fetchProducts();
     } catch (error: any) {
@@ -252,6 +255,7 @@ const Admin = () => {
 
   const handleEditProduct = (product: Product) => {
     setEditingProduct(product);
+    setFlavoursText((product.flavours || []).join("\n"));
     setForm({
       name: product.name,
       price: product.price,
@@ -470,8 +474,8 @@ const Admin = () => {
                       <Label htmlFor="flavours">Flavours</Label>
                       <Textarea
                         id="flavours"
-                        value={(form.flavours || []).join(", ")}
-                        onChange={(e) => handleFlavoursChange(e.target.value)}
+                        value={flavoursText}
+                        onChange={(e) => setFlavoursText(e.target.value)}
                         placeholder="Enter flavours separated by commas or new lines"
                         rows={2}
                       />
@@ -500,6 +504,7 @@ const Admin = () => {
                               flavours: [],
                               imageUrls: "",
                             });
+                            setFlavoursText("");
                           }}
                         >
                           Cancel

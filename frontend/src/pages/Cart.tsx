@@ -17,6 +17,7 @@ type CartItem = {
     images?: string[];
     stock?: number;
   };
+  flavour?: string | null;
   quantity: number;
 };
 
@@ -94,7 +95,7 @@ const Cart = () => {
     fetchCart();
   }, []);
 
-  const updateQuantity = async (productId: string, newQuantity: number) => {
+  const updateQuantity = async (productId: string, newQuantity: number, flavour?: string | null) => {
     if (newQuantity < 1) {
       handleRemoveItem(productId);
       return;
@@ -111,7 +112,7 @@ const Cart = () => {
       const res = await fetch(`${API_BASE_URL}/api/cart`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ productId, quantity: newQuantity }),
+        body: JSON.stringify({ productId, quantity: newQuantity, flavour: flavour || null }),
       });
 
       if (!res.ok) throw new Error('Failed to update quantity');
@@ -238,7 +239,7 @@ const Cart = () => {
                           size="sm"
                           variant="outline"
                           onClick={() =>
-                            updateQuantity(product?._id || "", item.quantity - 1)
+                            updateQuantity(product?._id || "", item.quantity - 1, item.flavour)
                           }
                           disabled={isUpdating}
                         >
@@ -249,7 +250,7 @@ const Cart = () => {
                           size="sm"
                           variant="outline"
                           onClick={() =>
-                            updateQuantity(product?._id || "", item.quantity + 1)
+                            updateQuantity(product?._id || "", item.quantity + 1, item.flavour)
                           }
                           disabled={isUpdating || (product?.stock && item.quantity >= product.stock)}
                         >

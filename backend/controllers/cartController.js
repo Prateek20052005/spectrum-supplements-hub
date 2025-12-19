@@ -22,7 +22,7 @@ export const getCart = asyncHandler(async (req, res) => {
  * body: { productId, quantity }
  */
 export const addToCart = asyncHandler(async (req, res) => {
-  const { productId, quantity = 1 } = req.body;
+  const { productId, quantity = 1, flavour = null } = req.body;
   
   if (!productId) {
     return res.status(400).json({ message: "Product ID is required" });
@@ -38,6 +38,13 @@ export const addToCart = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "Product not found" });
   }
 
+  if (flavour) {
+    const allowed = Array.isArray(product.flavours) ? product.flavours : [];
+    if (!allowed.includes(flavour)) {
+      return res.status(400).json({ message: "Invalid flavour for this product" });
+    }
+  }
+
   if (product.stock !== undefined && product.stock < quantity) {
     return res.status(400).json({ message: "Insufficient stock" });
   }
@@ -48,13 +55,16 @@ export const addToCart = asyncHandler(async (req, res) => {
   }
 
   const itemIndex = cart.items.findIndex(
-    (i) => i.productId && i.productId.toString() === productId.toString()
+    (i) =>
+      i.productId &&
+      i.productId.toString() === productId.toString() &&
+      String(i.flavour || "") === String(flavour || "")
   );
   
   if (itemIndex > -1) {
     cart.items[itemIndex].quantity = quantity;
   } else {
-    cart.items.push({ productId, quantity });
+    cart.items.push({ productId, quantity, flavour });
   }
 
   const saved = await cart.save();
