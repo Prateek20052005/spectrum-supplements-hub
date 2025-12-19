@@ -35,7 +35,8 @@ const Header = () => {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SearchProduct[]>([]);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const searchRootRef = useRef<HTMLDivElement | null>(null);
+  const desktopSearchRootRef = useRef<HTMLDivElement | null>(null);
+  const mobileSearchRootRef = useRef<HTMLDivElement | null>(null);
   const fetchAbortRef = useRef<AbortController | null>(null);
 
   const normalizedQuery = useMemo(() => query.trim(), [query]);
@@ -72,9 +73,12 @@ const Header = () => {
 
   useEffect(() => {
     const onPointerDown = (e: MouseEvent) => {
-      const root = searchRootRef.current;
-      if (!root) return;
-      if (!root.contains(e.target as Node)) {
+      const desktopRoot = desktopSearchRootRef.current;
+      const mobileRoot = mobileSearchRootRef.current;
+      const target = e.target as Node;
+      const insideDesktop = !!desktopRoot && desktopRoot.contains(target);
+      const insideMobile = !!mobileRoot && mobileRoot.contains(target);
+      if (!insideDesktop && !insideMobile) {
         closeSearch();
       }
     };
@@ -214,7 +218,7 @@ const Header = () => {
 
           {/* Search Bar - Desktop */}
           <div className="hidden md:flex items-center space-x-4 flex-1 max-w-md mx-8">
-            <div ref={searchRootRef} className="relative flex-1">
+            <div ref={desktopSearchRootRef} className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 value={query}
@@ -241,7 +245,10 @@ const Header = () => {
                             key={p._id}
                             type="button"
                             onMouseEnter={() => setActiveIndex(idx)}
-                            onMouseDown={(e) => e.preventDefault()}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
                             onClick={() => handleSelectProduct(p)}
                             className={`w-full text-left flex items-center gap-3 px-3 py-2 hover:bg-accent hover:text-accent-foreground ${
                               active ? "bg-accent text-accent-foreground" : ""
@@ -271,7 +278,10 @@ const Header = () => {
                       variant="outline"
                       size="sm"
                       className="w-full"
-                      onMouseDown={(e) => e.preventDefault()}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
                       onClick={() => handleSubmitSearch()}
                     >
                       See all results for "{normalizedQuery}"
@@ -367,7 +377,7 @@ const Header = () => {
 
         {/* Search Bar - Mobile */}
         <div className="md:hidden mt-4">
-          <div ref={searchRootRef} className="relative">
+          <div ref={mobileSearchRootRef} className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
               value={query}
@@ -393,7 +403,10 @@ const Header = () => {
                           key={p._id}
                           type="button"
                           onMouseEnter={() => setActiveIndex(idx)}
-                          onMouseDown={(e) => e.preventDefault()}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
                           onClick={() => handleSelectProduct(p)}
                           className={`w-full text-left flex items-center gap-3 px-3 py-2 hover:bg-accent hover:text-accent-foreground ${
                             active ? "bg-accent text-accent-foreground" : ""
@@ -423,7 +436,10 @@ const Header = () => {
                     variant="outline"
                     size="sm"
                     className="w-full"
-                    onMouseDown={(e) => e.preventDefault()}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
                     onClick={() => handleSubmitSearch()}
                   >
                     See all results for "{normalizedQuery}"
