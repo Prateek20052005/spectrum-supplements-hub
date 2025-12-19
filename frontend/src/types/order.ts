@@ -15,6 +15,14 @@ export interface OrderItem {
   quantity: number;
 }
 
+export interface DeliveryAddress {
+  street?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+}
+
 export interface Order {
   _id: string;
   userId?: {
@@ -24,6 +32,7 @@ export interface Order {
   };
   items: OrderItem[];
   totalAmount: number;
+  deliveryAddress?: DeliveryAddress;
   paymentMethod: string;
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
@@ -35,4 +44,5 @@ export interface CreateOrderRequest {
   items: OrderItem[];
   totalAmount: number;
   paymentMethod: string;
+  deliveryAddress?: DeliveryAddress;
 }

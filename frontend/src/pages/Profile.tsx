@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Phone, MapPin, Package, Clock4, LogOut, LogIn, Edit } from "lucide-react";
+import { Phone, MapPin, Package, Clock4, LogOut, LogIn, Edit, ChevronDown } from "lucide-react";
 import EditProfileForm from "@/components/EditProfileForm";
 import { type Order as ApiOrder } from "@/types/order";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type OrderSummary = {
   id: string;
@@ -170,6 +171,42 @@ const Profile = () => {
     };
   }, []);
 
+  const canCancelOrder = useCallback((o: ApiOrder) => {
+    const status = (o.orderStatus || "").toLowerCase();
+    return !["shipped", "delivered", "cancelled"].includes(status);
+  }, []);
+
+  const handleCancelOrder = useCallback(
+    async (orderId: string) => {
+      if (!window.confirm("Cancel this order? This is only possible before the order is shipped.")) return;
+      const headers = getAuthHeaders();
+      if (!headers) {
+        navigate("/login", { state: { from: "/profile" } });
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/orders/${orderId}/cancel`, {
+          method: "PUT",
+          headers,
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(data?.message || "Failed to cancel order");
+        }
+        setOrders((prev) => prev.map((o) => (o._id === orderId ? data : o)));
+        toast({ title: "Order cancelled", description: "Your order has been cancelled." });
+      } catch (e: any) {
+        toast({
+          title: "Error",
+          description: e?.message || "Failed to cancel order",
+          variant: "destructive",
+        });
+      }
+    },
+    [getAuthHeaders, navigate, toast]
+  );
+
   const currentOrders = useMemo(() => {
     const active = orders.filter((o) => !["delivered", "cancelled"].includes(o.orderStatus));
     return active.map(orderToSummary);
@@ -179,6 +216,14 @@ const Profile = () => {
     const past = orders.filter((o) => ["delivered", "cancelled"].includes(o.orderStatus));
     return past.map(orderToSummary);
   }, [orders, orderToSummary]);
+
+  const currentOrderList = useMemo(() => {
+    return orders.filter((o) => !["delivered", "cancelled"].includes(o.orderStatus));
+  }, [orders]);
+
+  const orderHistoryList = useMemo(() => {
+    return orders.filter((o) => ["delivered", "cancelled"].includes(o.orderStatus));
+  }, [orders]);
 
   const handleLogout = () => {
     localStorage.removeItem("userInfo");
@@ -302,34 +347,80 @@ const Profile = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {currentOrders.length ? (
-                  currentOrders.map((order) => (
-                    <div key={order.id} className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                        <div className="flex items-center gap-3">
-                          <Package className="h-5 w-5 text-primary" />
-                          <div>
-                            <p className="font-semibold">{order.id}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {order.items} item{order.items !== 1 ? "s" : ""} · {order.total}
-                            </p>
+                {currentOrderList.length ? (
+                  currentOrderList.map((o) => {
+                    const summary = orderToSummary(o);
+                    const canCancel = canCancelOrder(o);
+                    const addr = o.deliveryAddress;
+                    const addrText = addr
+                      ? [addr.street, addr.city, addr.state, addr.postalCode, addr.country].filter(Boolean).join(", ")
+                      : "No delivery address";
+
+                    return (
+                      <Collapsible key={o._id}>
+                        <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
+                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                            <div className="flex items-center gap-3">
+                              <Package className="h-5 w-5 text-primary" />
+                              <div>
+                                <p className="font-semibold">{summary.id}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {summary.items} item{summary.items !== 1 ? "s" : ""} · {summary.total}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-start md:items-end gap-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="capitalize">
+                                  {summary.status}
+                                </Badge>
+                                <CollapsibleTrigger asChild>
+                                  <Button variant="outline" size="sm" className="h-8 px-2">
+                                    <ChevronDown className="h-4 w-4" />
+                                  </Button>
+                                </CollapsibleTrigger>
+                              </div>
+                              {canCancel && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  className="h-8"
+                                  onClick={() => handleCancelOrder(o._id)}
+                                >
+                                  Cancel
+                                </Button>
+                              )}
+                            </div>
                           </div>
+
+                          <CollapsibleContent className="pt-4">
+                            <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+                              <div>
+                                <p className="text-xs font-medium text-muted-foreground">Delivery Address</p>
+                                <p className="text-sm">{addrText}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-muted-foreground">Products</p>
+                                <div className="space-y-1">
+                                  {(o.items || []).map((it, idx) => (
+                                    <div key={idx} className="text-sm flex justify-between gap-4">
+                                      <span className="truncate">{it.name || "Item"}</span>
+                                      <span className="text-muted-foreground">× {it.quantity || 1}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="flex justify-end">
+                                <Button variant="outline" size="sm" onClick={() => navigate(`/order/${o._id}`)}>
+                                  View full order
+                                </Button>
+                              </div>
+                            </div>
+                          </CollapsibleContent>
                         </div>
-                        <div className="flex flex-col items-start md:items-end gap-1">
-                          <Badge
-                            variant={order.status === "Delivered" ? "secondary" : "outline"}
-                            className="capitalize"
-                          >
-                            {order.status}
-                          </Badge>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Clock4 className="h-4 w-4" />
-                            <span>{order.eta || "Delivery details coming soon"}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
+                      </Collapsible>
+                    );
+                  })
                 ) : (
                   <div className="text-center py-8">
                     <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -352,23 +443,67 @@ const Profile = () => {
                 <Badge variant="outline">{orderHistory.length} completed</Badge>
               </CardHeader>
               <CardContent className="space-y-3">
-                {orderHistory.length ? (
-                  orderHistory.map((order) => (
-                    <div key={order.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
-                      <div className="space-y-1">
-                        <p className="font-semibold">{order.id}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {order.items} item{order.items !== 1 ? "s" : ""} · {order.total}
-                        </p>
-                      </div>
-                      <div className="text-right space-y-1">
-                        <Badge variant="secondary" className="capitalize">
-                          {order.status}
-                        </Badge>
-                        <p className="text-xs text-muted-foreground">{order.date || "Date unavailable"}</p>
-                      </div>
-                    </div>
-                  ))
+                {orderHistoryList.length ? (
+                  orderHistoryList.map((o) => {
+                    const summary = orderToSummary(o);
+                    const addr = o.deliveryAddress;
+                    const addrText = addr
+                      ? [addr.street, addr.city, addr.state, addr.postalCode, addr.country].filter(Boolean).join(", ")
+                      : "No delivery address";
+
+                    return (
+                      <Collapsible key={o._id}>
+                        <div className="rounded-lg border border-border bg-card px-4 py-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="space-y-1">
+                              <p className="font-semibold">{summary.id}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {summary.items} item{summary.items !== 1 ? "s" : ""} · {summary.total}
+                              </p>
+                            </div>
+                            <div className="text-right space-y-2">
+                              <div className="flex items-center justify-end gap-2">
+                                <Badge variant="secondary" className="capitalize">
+                                  {summary.status}
+                                </Badge>
+                                <CollapsibleTrigger asChild>
+                                  <Button variant="outline" size="sm" className="h-8 px-2">
+                                    <ChevronDown className="h-4 w-4" />
+                                  </Button>
+                                </CollapsibleTrigger>
+                              </div>
+                              <p className="text-xs text-muted-foreground">{summary.date || "Date unavailable"}</p>
+                            </div>
+                          </div>
+
+                          <CollapsibleContent className="pt-4">
+                            <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+                              <div>
+                                <p className="text-xs font-medium text-muted-foreground">Delivery Address</p>
+                                <p className="text-sm">{addrText}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-muted-foreground">Products</p>
+                                <div className="space-y-1">
+                                  {(o.items || []).map((it, idx) => (
+                                    <div key={idx} className="text-sm flex justify-between gap-4">
+                                      <span className="truncate">{it.name || "Item"}</span>
+                                      <span className="text-muted-foreground">× {it.quantity || 1}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="flex justify-end">
+                                <Button variant="outline" size="sm" onClick={() => navigate(`/order/${o._id}`)}>
+                                  View full order
+                                </Button>
+                              </div>
+                            </div>
+                          </CollapsibleContent>
+                        </div>
+                      </Collapsible>
+                    );
+                  })
                 ) : (
                   <div className="text-center py-8">
                     <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />

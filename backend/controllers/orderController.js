@@ -14,6 +14,7 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     items,
     totalAmount,
     paymentMethod,
+    deliveryAddress,
     // tolerate older frontend payloads
     orderItems,
     totalPrice,
@@ -42,6 +43,16 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     userId: req.user._id,
     items: normalizedItems,
     totalAmount: normalizedTotal,
+    deliveryAddress:
+      deliveryAddress && typeof deliveryAddress === "object"
+        ? {
+            street: deliveryAddress.street,
+            city: deliveryAddress.city,
+            state: deliveryAddress.state,
+            postalCode: deliveryAddress.postalCode,
+            country: deliveryAddress.country || "India",
+          }
+        : undefined,
     paymentMethod,
     paymentStatus: paymentMethod === "upi" ? "pending" : "pending",
     orderStatus: "placed",

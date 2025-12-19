@@ -15,6 +15,13 @@ const orderSchema = new mongoose.Schema(
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     items: { type: [orderItemSchema], default: [] },
     totalAmount: { type: Number, required: true },
+    deliveryAddress: {
+      street: { type: String },
+      city: { type: String },
+      state: { type: String },
+      postalCode: { type: String },
+      country: { type: String, default: "India" },
+    },
     paymentMethod: { type: String, default: "cod" },
     paymentStatus: { type: String, default: "pending" },
     orderStatus: { type: String, default: "placed" },

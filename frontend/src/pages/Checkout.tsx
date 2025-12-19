@@ -323,6 +323,10 @@ const Checkout = () => {
         })),
         totalAmount: order.total,
         paymentMethod,
+        deliveryAddress: {
+          ...shippingAddress,
+          country: shippingAddress.country || "India",
+        },
       };
 
       const response = await fetch(`${API_BASE_URL}/api/orders`, {

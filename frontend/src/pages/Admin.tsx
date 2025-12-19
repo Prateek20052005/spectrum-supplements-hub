@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import { X, Plus, Edit, Trash2, Package, User, DollarSign } from "lucide-react";
+import { X, Plus, Edit, Trash2, Package, User, DollarSign, ChevronDown } from "lucide-react";
 import { formatINR } from "@/utils/currency";
 import { CATEGORIES } from "@/constants/categories";
 
@@ -33,6 +34,13 @@ type Order = {
   orderStatus?: string;
   status?: string;
   items?: Array<{ name?: string; quantity?: number; price?: number }>;
+  deliveryAddress?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+  };
   createdAt?: string;
   updatedAt?: string;
 };
@@ -93,6 +101,32 @@ const Admin = () => {
       });
     } finally {
       setLoadingProducts(false);
+    }
+  };
+
+  const canCancelOrder = (status?: string) => {
+    return !["shipped", "delivered", "cancelled"].includes((status || "").toLowerCase());
+  };
+
+  const handleCancelOrder = async (orderId: string) => {
+    if (!window.confirm("Cancel this order? This is only possible before it is shipped.")) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/orders/${orderId}/cancel`, {
+        method: "PUT",
+        headers: authHeaders,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.message || "Failed to cancel order");
+      }
+      toast({ title: "Order cancelled", description: "Order has been cancelled." });
+      fetchOrders();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error cancelling order",
+        description: error.message || "Please check your admin permissions and try again.",
+      });
     }
   };
 
@@ -531,8 +565,21 @@ const Admin = () => {
                         ? new Date(order.createdAt).toLocaleDateString()
                         : "";
 
+                      const deliveryAddress = order.deliveryAddress;
+                      const deliveryText = deliveryAddress
+                        ? [
+                            deliveryAddress.street,
+                            deliveryAddress.city,
+                            deliveryAddress.state,
+                            deliveryAddress.postalCode,
+                            deliveryAddress.country,
+                          ]
+                            .filter(Boolean)
+                            .join(", ")
+                        : "No delivery address";
+
                       return (
-                        <div
+                        <Collapsible
                           key={order._id}
                           className="flex flex-col gap-2 border-b last:border-b-0 pb-3 pt-2"
                         >
@@ -543,6 +590,11 @@ const Admin = () => {
                                 <p className="font-medium text-sm">
                                   Order #{order._id.slice(-8).toUpperCase()}
                                 </p>
+                                <CollapsibleTrigger asChild>
+                                  <Button variant="outline" size="sm" className="h-7 px-2">
+                                    <ChevronDown className="w-4 h-4" />
+                                  </Button>
+                                </CollapsibleTrigger>
                               </div>
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <User className="w-3 h-3" />
@@ -558,9 +610,7 @@ const Admin = () => {
                                 )}
                               </div>
                               {orderDate && (
-                                <p className="text-xs text-muted-foreground">
-                                  {orderDate}
-                                </p>
+                                <p className="text-xs text-muted-foreground">{orderDate}</p>
                               )}
                             </div>
                             <div className="flex flex-col items-end gap-2">
@@ -585,21 +635,36 @@ const Admin = () => {
                                 className={`w-3 h-3 rounded-full ${getStatusColor(status)}`}
                                 title={status}
                               />
-                            </div>
-                          </div>
-                          {order.items && order.items.length > 0 && (
-                            <div className="text-xs text-muted-foreground pl-6">
-                              {order.items.slice(0, 2).map((item, idx) => (
-                                <div key={idx}>
-                                  {item.name || "Item"} × {item.quantity || 1}
-                                </div>
-                              ))}
-                              {order.items.length > 2 && (
-                                <div>+{order.items.length - 2} more</div>
+                              {canCancelOrder(status) && (
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="h-8"
+                                  onClick={() => handleCancelOrder(order._id)}
+                                >
+                                  Cancel
+                                </Button>
                               )}
                             </div>
-                          )}
-                        </div>
+                          </div>
+
+                          <CollapsibleContent className="pl-6 space-y-2">
+                            <div className="text-xs text-muted-foreground">
+                              <div className="font-medium">Delivery Address</div>
+                              <div>{deliveryText}</div>
+                            </div>
+                            {order.items && order.items.length > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                <div className="font-medium">Products</div>
+                                {order.items.map((item, idx) => (
+                                  <div key={idx}>
+                                    {item.name || "Item"} × {item.quantity || 1}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </CollapsibleContent>
+                        </Collapsible>
                       );
                     })}
                   {!loadingOrders && (!Array.isArray(orders) || !orders.length) && (
