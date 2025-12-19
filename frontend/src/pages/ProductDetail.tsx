@@ -37,6 +37,7 @@ const ProductDetail = () => {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [selectedFlavour, setSelectedFlavour] = useState<string | null>(null);
   const [canReview, setCanReview] = useState<boolean>(false);
   const [reviewReason, setReviewReason] = useState<string | null>(null);
   const [submittingReview, setSubmittingReview] = useState(false);
@@ -64,6 +65,10 @@ const ProductDetail = () => {
         }
         const data = await res.json();
         setProduct(data);
+        // Set the first flavour as selected if available
+        if (data.flavours?.length > 0) {
+          setSelectedFlavour(data.flavours[0]);
+        }
       } catch (error: any) {
         toast({
           variant: "destructive",
@@ -111,6 +116,17 @@ const ProductDetail = () => {
   const handleAddToCart = async () => {
     if (!product) return;
 
+    // Check if a flavour is selected when the product has flavours
+    const hasFlavours = product.flavours && product.flavours.length > 0;
+    if (hasFlavours && !selectedFlavour) {
+      toast({
+        variant: "destructive",
+        title: "Select a flavour",
+        description: "Please select a flavour before adding to cart.",
+      });
+      return;
+    }
+
     try {
       const userInfoRaw = localStorage.getItem("userInfo");
       if (!userInfoRaw) {
@@ -142,7 +158,11 @@ const ProductDetail = () => {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ productId: product._id, quantity: 1 }),
+        body: JSON.stringify({ 
+          productId: product._id, 
+          quantity: 1,
+          flavour: selectedFlavour || undefined
+        }),
       });
 
       const data = await res.json();
@@ -352,11 +372,30 @@ const ProductDetail = () => {
                 <h3 className="font-semibold mb-2">Flavours Available</h3>
                 <div className="flex flex-wrap gap-2">
                   {flavours.map((f) => (
-                    <Badge key={f} variant="secondary">
-                      {f}
-                    </Badge>
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setSelectedFlavour(f)}
+                      className={`inline-flex transition-all ${
+                        selectedFlavour === f 
+                          ? 'ring-2 ring-offset-2 ring-primary scale-105' 
+                          : 'opacity-80 hover:opacity-100 hover:ring-1 hover:ring-muted-foreground/30'
+                      } rounded-full`}
+                    >
+                      <Badge 
+                        variant={selectedFlavour === f ? 'default' : 'secondary'}
+                        className="px-3 py-1.5 text-sm font-medium"
+                      >
+                        {f}
+                      </Badge>
+                    </button>
                   ))}
                 </div>
+                {selectedFlavour && (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Selected: <span className="text-foreground font-medium">{selectedFlavour}</span>
+                  </p>
+                )}
               </div>
             )}
           </div>
