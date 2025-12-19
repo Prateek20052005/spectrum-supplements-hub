@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Phone, MapPin, Package, Clock4, LogOut, LogIn, Edit } from "lucide-react";
 import EditProfileForm from "@/components/EditProfileForm";
+import { type Order as ApiOrder } from "@/types/order";
 
 type OrderSummary = {
   id: string;
@@ -25,16 +26,33 @@ type UserProfile = {
   phone?: string;
   address?: string;
   role?: string;
-  currentOrders?: OrderSummary[];
-  orderHistory?: OrderSummary[];
 };
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
 
 const Profile = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [orders, setOrders] = useState<ApiOrder[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const getAuthHeaders = useCallback(() => {
+    try {
+      const userInfoRaw = localStorage.getItem("userInfo");
+      if (!userInfoRaw) return null;
+      const userInfo = JSON.parse(userInfoRaw);
+      const token = userInfo?.token;
+      if (!token) return null;
+      return {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      } as const;
+    } catch {
+      return null;
+    }
+  }, []);
 
   const fetchUserProfile = useCallback(() => {
     try {
@@ -58,6 +76,32 @@ const Profile = () => {
     }
   }, [toast]);
 
+  const fetchOrders = useCallback(async () => {
+    const headers = getAuthHeaders();
+    if (!headers) {
+      setOrders([]);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/orders`, { headers });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.message || "Failed to load orders");
+      }
+
+      const list: ApiOrder[] = Array.isArray(data) ? data : data?.orders;
+      setOrders(Array.isArray(list) ? list : []);
+    } catch (e: any) {
+      setOrders([]);
+      toast({
+        title: "Error",
+        description: e?.message || "Failed to load orders.",
+        variant: "destructive",
+      });
+    }
+  }, [getAuthHeaders, toast]);
+
   const handleUpdateProfile = useCallback(async (data: Partial<UserProfile>) => {
     const nextUser: UserProfile = {
       ...(user ?? {}),
@@ -80,11 +124,26 @@ const Profile = () => {
     return `${parts[0][0]?.toUpperCase() || ""}${parts[1][0]?.toUpperCase() || ""}`;
   }, [user?.fullName, user?.email]);
 
-  const userCurrentOrders = user?.currentOrders;
-  const userOrderHistory = user?.orderHistory;
+  const orderToSummary = useCallback((o: ApiOrder): OrderSummary => {
+    const normalized = o.orderStatus ? o.orderStatus[0].toUpperCase() + o.orderStatus.slice(1) : "Placed";
+    return {
+      id: `ORD-${o._id.slice(-6).toUpperCase()}`,
+      status: normalized,
+      items: Array.isArray(o.items) ? o.items.reduce((sum, it) => sum + (it.quantity || 0), 0) : 0,
+      total: String(o.totalAmount),
+      date: o.createdAt ? new Date(o.createdAt).toLocaleDateString() : undefined,
+    };
+  }, []);
 
-  const currentOrders = userCurrentOrders ?? [];
-  const orderHistory = userOrderHistory ?? [];
+  const currentOrders = useMemo(() => {
+    const active = orders.filter((o) => !["delivered", "cancelled"].includes(o.orderStatus));
+    return active.map(orderToSummary);
+  }, [orders, orderToSummary]);
+
+  const orderHistory = useMemo(() => {
+    const past = orders.filter((o) => ["delivered", "cancelled"].includes(o.orderStatus));
+    return past.map(orderToSummary);
+  }, [orders, orderToSummary]);
 
   const handleLogout = () => {
     localStorage.removeItem("userInfo");
@@ -96,6 +155,12 @@ const Profile = () => {
   useEffect(() => {
     fetchUserProfile();
   }, [fetchUserProfile]);
+
+  // Fetch orders once authenticated
+  useEffect(() => {
+    if (!user) return;
+    fetchOrders();
+  }, [fetchOrders, user]);
   
   // Show loading state
   if (isLoading) {
