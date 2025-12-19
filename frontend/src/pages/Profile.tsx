@@ -24,7 +24,13 @@ type UserProfile = {
   fullName?: string;
   email?: string;
   phone?: string;
-  address?: string;
+  address?: {
+    street: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  };
   role?: string;
 };
 
@@ -110,11 +116,40 @@ const Profile = () => {
 
     setUser(nextUser);
     localStorage.setItem("userInfo", JSON.stringify(nextUser));
+
+    const headers = getAuthHeaders();
+    if (headers) {
+      try {
+        await fetch(`${API_BASE_URL}/api/users/profile`, {
+          method: "PUT",
+          headers,
+          body: JSON.stringify(data),
+        });
+      } catch {
+        // ignore API failure; local profile still updates
+      }
+    }
+
     toast({
       title: "Profile updated",
       description: "Your profile has been updated successfully.",
     });
   }, [toast, user]);
+
+  const formattedAddress = useMemo(() => {
+    const a = user?.address;
+    if (a?.street) {
+      const parts = [
+        a.street,
+        a.city,
+        a.state,
+        a.postalCode,
+        a.country,
+      ].filter(Boolean);
+      return parts.join(", ");
+    }
+    return undefined;
+  }, [user?.address]);
 
   const initials = useMemo(() => {
     const name = user?.fullName || user?.email;
@@ -237,7 +272,7 @@ const Profile = () => {
                 </div>
                 <div className="flex items-start space-x-3 text-sm">
                   <MapPin className="h-4 w-4 opacity-60 mt-0.5 flex-shrink-0" />
-                  <span>{user.address || 'No address saved'}</span>
+                  <span>{formattedAddress || 'No address saved'}</span>
                 </div>
                 
                 <div className="pt-4 border-t">
@@ -373,7 +408,13 @@ const Profile = () => {
                   fullName: user.fullName || "",
                   email: user.email || "",
                   phone: user.phone,
-                  address: user.address,
+                  address: user.address || {
+                    street: "",
+                    city: "",
+                    state: "",
+                    postalCode: "",
+                    country: "India",
+                  },
                 }} 
                 onUpdate={async (data) => {
                   await handleUpdateProfile(data);

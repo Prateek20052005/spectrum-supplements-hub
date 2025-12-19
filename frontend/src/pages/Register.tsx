@@ -13,7 +13,6 @@ const Register = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -39,7 +38,7 @@ const Register = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ fullName, email, password, phone, address }),
+        body: JSON.stringify({ fullName, email, password, phone }),
       });
 
       const data = await res.json();
@@ -122,15 +121,6 @@ const Register = () => {
                     placeholder="+1 555 123 4567"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="address">Address (optional)</Label>
-                  <Input
-                    id="address"
-                    placeholder="Street, City, ZIP"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
                   />
                 </div>
                 <Button

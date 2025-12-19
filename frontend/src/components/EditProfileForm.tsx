@@ -10,7 +10,13 @@ interface EditProfileFormProps {
     fullName: string;
     email: string;
     phone?: string;
-    address?: string;
+    address?: {
+      street: string;
+      city: string;
+      state: string;
+      postalCode: string;
+      country: string;
+    };
   };
   onUpdate: (data: any) => Promise<void>;
   onCancel: () => void;
@@ -18,11 +24,18 @@ interface EditProfileFormProps {
 
 export default function EditProfileForm({ user, onUpdate, onCancel }: EditProfileFormProps) {
   const { toast } = useToast();
+  const initialAddress = user.address || {
+    street: "",
+    city: "",
+    state: "",
+    postalCode: "",
+    country: "India",
+  };
   const [formData, setFormData] = useState({
     fullName: user.fullName || "",
     email: user.email || "",
     phone: user.phone || "",
-    address: user.address || "",
+    address: initialAddress,
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -40,10 +53,21 @@ export default function EditProfileForm({ user, onUpdate, onCancel }: EditProfil
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
+    if (name.startsWith("address.")) {
+      const key = name.replace("address.", "");
+      setFormData((prev) => ({
+        ...prev,
+        address: {
+          ...prev.address,
+          [key]: value,
+        },
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
     
     // Clear error when user starts typing
     if (errors[name as keyof typeof errors]) {
@@ -64,7 +88,15 @@ export default function EditProfileForm({ user, onUpdate, onCancel }: EditProfil
 
     try {
       setLoading(true);
-      await onUpdate(formData);
+      await onUpdate({
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        address: {
+          ...formData.address,
+          country: formData.address.country || "India",
+        },
+      });
       toast({
         title: "Profile updated",
         description: "Your profile has been updated successfully.",
@@ -123,14 +155,60 @@ export default function EditProfileForm({ user, onUpdate, onCancel }: EditProfil
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="address">Address</Label>
+        <Label htmlFor="address.street">Street Address</Label>
         <Input
-          id="address"
-          name="address"
-          value={formData.address}
+          id="address.street"
+          name="address.street"
+          value={formData.address.street}
           onChange={handleChange}
           disabled={loading}
         />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="address.city">City</Label>
+          <Input
+            id="address.city"
+            name="address.city"
+            value={formData.address.city}
+            onChange={handleChange}
+            disabled={loading}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="address.state">State</Label>
+          <Input
+            id="address.state"
+            name="address.state"
+            value={formData.address.state}
+            onChange={handleChange}
+            disabled={loading}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="address.postalCode">Postal Code</Label>
+          <Input
+            id="address.postalCode"
+            name="address.postalCode"
+            value={formData.address.postalCode}
+            onChange={handleChange}
+            disabled={loading}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="address.country">Country</Label>
+          <Input
+            id="address.country"
+            name="address.country"
+            value={formData.address.country}
+            onChange={handleChange}
+            disabled={loading}
+          />
+        </div>
       </div>
 
       <div className="flex justify-end gap-2 pt-4">

@@ -25,13 +25,15 @@ type UserProfile = {
   name: string;
   email: string;
   phone?: string;
-  shippingAddress?: {
-    street: string;
-    city: string;
-    state: string;
-    postalCode: string;
-    country: string;
-  };
+  address?:
+    | {
+      street: string;
+      city: string;
+      state: string;
+      postalCode: string;
+      country: string;
+    }
+    | string;
 };
 
 type CheckoutOrder = {
@@ -68,7 +70,6 @@ const Checkout = () => {
     postalCode: '',
     country: 'India'
   });
-  const [saveShippingAddress, setSaveShippingAddress] = useState(!!user?.shippingAddress);
 
   const getAuthHeaders = () => {
     try {
@@ -92,19 +93,44 @@ const Checkout = () => {
       if (res.ok) {
         const userData = await res.json();
         setUser(userData);
-        if (userData.shippingAddress) {
-          setShippingAddress(prev => ({
+        if (userData.address && typeof userData.address === "object") {
+          setShippingAddress({
+            street: userData.address.street || "",
+            city: userData.address.city || "",
+            state: userData.address.state || "",
+            postalCode: userData.address.postalCode || "",
+            country: userData.address.country || "India",
+          });
+        } else if (typeof userData.address === "string") {
+          setShippingAddress((prev) => ({
             ...prev,
-            ...userData.shippingAddress,
-            country: userData.shippingAddress.country || 'India' // Ensure country has a default
+            street: userData.address,
           }));
-          setSaveShippingAddress(true);
         }
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
     }
   };
+
+  useEffect(() => {
+    if (!user) return;
+    if (user.address && typeof user.address === "object") {
+      setShippingAddress({
+        street: user.address.street || "",
+        city: user.address.city || "",
+        state: user.address.state || "",
+        postalCode: user.address.postalCode || "",
+        country: user.address.country || "India",
+      });
+    } else if (typeof user.address === "string") {
+      const legacyAddress = user.address;
+      setShippingAddress((prev) => ({
+        ...prev,
+        street: legacyAddress || prev.street,
+      }));
+    }
+  }, [user]);
 
   const updateUserProfile = async (updates: Partial<UserProfile>) => {
     const headers = getAuthHeaders();
@@ -241,8 +267,8 @@ const Checkout = () => {
       return;
     }
 
-    // If user doesn't have a shipping address, validate the form
-    if (!user?.shippingAddress) {
+    // If user doesn't have an address, validate the form and auto-save it
+    if (!(typeof user?.address === "object" ? user?.address?.street : typeof user?.address === "string" ? user?.address : undefined)) {
       const requiredFields = ['street', 'city', 'state', 'postalCode', 'country'];
       const missingFields = requiredFields.filter(field => !shippingAddress[field as keyof typeof shippingAddress]);
       
@@ -255,14 +281,17 @@ const Checkout = () => {
         return;
       }
 
-      // Save shipping address to profile if requested
-      if (saveShippingAddress && user) {
-        const success = await updateUserProfile({ 
-          shippingAddress: {
-            ...shippingAddress,
-            country: shippingAddress.country || 'India' // Ensure country is always set
-          } 
+      // Auto-save address to profile (since user didn't have one before checkout)
+      if (user) {
+        const normalizedShippingAddress = {
+          ...shippingAddress,
+          country: shippingAddress.country || 'India',
+        };
+
+        const success = await updateUserProfile({
+          address: normalizedShippingAddress,
         });
+
         if (!success) {
           toast({
             variant: "destructive",
@@ -271,13 +300,14 @@ const Checkout = () => {
           });
         } else {
           // Update local user state with the new shipping address
-          setUser(prev => prev ? {
-            ...prev,
-            shippingAddress: {
-              ...shippingAddress,
-              country: shippingAddress.country || 'India'
-            }
-          } : null);
+          setUser((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  address: normalizedShippingAddress,
+                }
+              : null
+          );
         }
       }
     }
@@ -351,7 +381,8 @@ const Checkout = () => {
     );
   }
 
-  const hasShippingAddress = !!user?.shippingAddress;
+  const hasShippingAddress =
+    typeof user?.address === "object" ? !!user?.address?.street : typeof user?.address === "string" ? !!user?.address : false;
 
   if (orderSuccess) {
     return (
@@ -435,86 +466,56 @@ const Checkout = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {hasShippingAddress ? (
+                  <div className="space-y-4">
                     <div className="space-y-2">
-                      <p className="font-medium">{user.shippingAddress.street}</p>
-                      <p className="text-muted-foreground">
-                        {user.shippingAddress.city}, {user.shippingAddress.state} {user.shippingAddress.postalCode}
-                      </p>
-                      <p className="text-muted-foreground">{user.shippingAddress.country}</p>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => navigate('/profile')}
-                        className="mt-2"
-                      >
-                        Update Address
-                      </Button>
+                      <Label htmlFor="street">Street Address *</Label>
+                      <Input 
+                        id="street" 
+                        value={shippingAddress.street}
+                        onChange={(e) => setShippingAddress({ ...shippingAddress, street: e.target.value })}
+                        required 
+                      />
                     </div>
-                  ) : (
-                    <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="street">Street Address *</Label>
+                        <Label htmlFor="city">City *</Label>
                         <Input 
-                          id="street" 
-                          value={shippingAddress.street}
-                          onChange={(e) => setShippingAddress({...shippingAddress, street: e.target.value})}
+                          id="city" 
+                          value={shippingAddress.city}
+                          onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })}
                           required 
                         />
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="city">City *</Label>
-                          <Input 
-                            id="city" 
-                            value={shippingAddress.city}
-                            onChange={(e) => setShippingAddress({...shippingAddress, city: e.target.value})}
-                            required 
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="state">State *</Label>
-                          <Input 
-                            id="state" 
-                            value={shippingAddress.state}
-                            onChange={(e) => setShippingAddress({...shippingAddress, state: e.target.value})}
-                            required 
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="postalCode">Postal Code *</Label>
-                          <Input 
-                            id="postalCode" 
-                            value={shippingAddress.postalCode}
-                            onChange={(e) => setShippingAddress({...shippingAddress, postalCode: e.target.value})}
-                            required 
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="country">Country</Label>
-                          <Input 
-                            id="country" 
-                            value={shippingAddress.country}
-                            disabled
-                          />
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2 pt-2">
-                        <input
-                          type="checkbox"
-                          id="save-address"
-                          checked={saveShippingAddress}
-                          onChange={(e) => setSaveShippingAddress(e.target.checked)}
-                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      <div className="space-y-2">
+                        <Label htmlFor="state">State *</Label>
+                        <Input 
+                          id="state" 
+                          value={shippingAddress.state}
+                          onChange={(e) => setShippingAddress({ ...shippingAddress, state: e.target.value })}
+                          required 
                         />
-                        <label htmlFor="save-address" className="text-sm text-muted-foreground">
-                          Save this address for future orders
-                        </label>
                       </div>
                     </div>
-                  )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="postalCode">Postal Code *</Label>
+                        <Input 
+                          id="postalCode" 
+                          value={shippingAddress.postalCode}
+                          onChange={(e) => setShippingAddress({ ...shippingAddress, postalCode: e.target.value })}
+                          required 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="country">Country</Label>
+                        <Input 
+                          id="country" 
+                          value={shippingAddress.country}
+                          disabled
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 

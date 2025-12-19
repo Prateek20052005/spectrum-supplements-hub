@@ -26,7 +26,10 @@ export const registerUser = asyncHandler(async (req, res) => {
     email,
     password: hashed,
     phone,
-    address,
+    address:
+      typeof address === "string"
+        ? { street: address, country: "India" }
+        : address,
   });
 
   if (user) {
@@ -57,6 +60,8 @@ export const authUser = asyncHandler(async (req, res) => {
       fullName: user.fullName,
       email: user.email,
       role: user.role,
+      phone: user.phone,
+      address: user.address,
       token: generateToken(user._id),
     });
   } else {
@@ -89,7 +94,16 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
 
   user.fullName = req.body.fullName || user.fullName;
   user.phone = req.body.phone || user.phone;
-  user.address = req.body.address || user.address;
+
+  if (req.body.address !== undefined) {
+    user.address =
+      typeof req.body.address === "string"
+        ? { street: req.body.address, country: "India" }
+        : {
+            ...(user.address?.toObject?.() || user.address || {}),
+            ...req.body.address,
+          };
+  }
 
   if (req.body.password) {
     const salt = await bcrypt.genSalt(10);
@@ -102,6 +116,8 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
     fullName: updatedUser.fullName,
     email: updatedUser.email,
     role: updatedUser.role,
+    phone: updatedUser.phone,
+    address: updatedUser.address,
     token: generateToken(updatedUser._id),
   });
 });
