@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import Header from "@/components/Header";
@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Mail, Phone, MapPin, Package, Clock4, LogOut, LogIn, ShieldCheck } from "lucide-react";
+import { Phone, MapPin, Package, Clock4, LogOut, LogIn, Edit } from "lucide-react";
+import EditProfileForm from "@/components/EditProfileForm";
 
 type OrderSummary = {
   id: string;
@@ -24,22 +25,52 @@ type UserProfile = {
   phone?: string;
   address?: string;
   role?: string;
+  currentOrders?: OrderSummary[];
+  orderHistory?: OrderSummary[];
 };
 
 const Profile = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
-  useEffect(() => {
-    const saved = localStorage.getItem("userInfo");
-    if (saved) {
-      try {
-        setUser(JSON.parse(saved));
-      } catch {
+  const fetchUserProfile = useCallback(() => {
+    try {
+      setIsLoading(true);
+      const saved = localStorage.getItem("userInfo");
+      if (!saved) {
         setUser(null);
+        return;
       }
+
+      setUser(JSON.parse(saved));
+    } catch {
+      setUser(null);
+      toast({
+        title: "Error",
+        description: "Failed to load profile.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-  }, []);
+  }, [toast]);
+
+  const handleUpdateProfile = useCallback(async (data: Partial<UserProfile>) => {
+    const nextUser: UserProfile = {
+      ...(user ?? {}),
+      ...data,
+    };
+
+    setUser(nextUser);
+    localStorage.setItem("userInfo", JSON.stringify(nextUser));
+    toast({
+      title: "Profile updated",
+      description: "Your profile has been updated successfully.",
+    });
+  }, [toast, user]);
 
   const initials = useMemo(() => {
     const name = user?.fullName || user?.email;
@@ -49,8 +80,11 @@ const Profile = () => {
     return `${parts[0][0]?.toUpperCase() || ""}${parts[1][0]?.toUpperCase() || ""}`;
   }, [user?.fullName, user?.email]);
 
-  const currentOrders = user?.currentOrders?.length ? user.currentOrders : sampleCurrentOrders;
-  const orderHistory = user?.orderHistory?.length ? user.orderHistory : sampleOrderHistory;
+  const userCurrentOrders = user?.currentOrders;
+  const userOrderHistory = user?.orderHistory;
+
+  const currentOrders = userCurrentOrders ?? [];
+  const orderHistory = userOrderHistory ?? [];
 
   const handleLogout = () => {
     localStorage.removeItem("userInfo");
@@ -61,7 +95,7 @@ const Profile = () => {
   // Fetch user data on component mount
   useEffect(() => {
     fetchUserProfile();
-  }, []);
+  }, [fetchUserProfile]);
   
   // Show loading state
   if (isLoading) {
@@ -158,76 +192,83 @@ const Profile = () => {
           {/* Main content - Orders */}
           <div className="md:col-span-3 space-y-6">
             {/* Current Orders */}
-            {user.currentOrders && user.currentOrders.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>Current Orders</CardTitle>
-                    <Badge variant="outline" className="bg-primary/10 text-primary">
-                      {user.currentOrders.length} Active
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {currentOrders.length ? (
-                    currentOrders.map((order) => (
-                      <div key={order.id} className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                          <div className="flex items-center gap-3">
-                            <Package className="h-5 w-5 text-primary" />
-                            <div>
-                              <p className="font-semibold">{order.id}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {order.items} item{order.items !== 1 ? "s" : ""} · {order.total}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-start md:items-end gap-1">
-                            <Badge
-                              variant={order.status === "Delivered" ? "secondary" : "outline"}
-                              className="capitalize"
-                            >
-                              {order.status}
-                            </Badge>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Clock4 className="h-4 w-4" />
-                              <span>{order.eta || "Delivery details coming soon"}</span>
-                            </div>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Current Orders</CardTitle>
+                  <Badge variant="outline" className="bg-primary/10 text-primary">
+                    {currentOrders.length} Active
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {currentOrders.length ? (
+                  currentOrders.map((order) => (
+                    <div key={order.id} className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                        <div className="flex items-center gap-3">
+                          <Package className="h-5 w-5 text-primary" />
+                          <div>
+                            <p className="font-semibold">{order.id}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {order.items} item{order.items !== 1 ? "s" : ""} · {order.total}
+                            </p>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-card">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-xl">Order history</CardTitle>
-                    <p className="text-sm text-muted-foreground">Past purchases and receipts</p>
-                  </div>
-                  <Badge variant="outline">{orderHistory.length} completed</Badge>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {orderHistory.length ? (
-                    orderHistory.map((order) => (
-                      <div key={order.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
-                        <div className="space-y-1">
-                          <p className="font-semibold">{order.id}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {order.items} item{order.items !== 1 ? "s" : ""} · {order.total}
-                          </p>
-                        </div>
-                        <div className="text-right space-y-1">
-                          <Badge variant="secondary" className="capitalize">
+                        <div className="flex flex-col items-start md:items-end gap-1">
+                          <Badge
+                            variant={order.status === "Delivered" ? "secondary" : "outline"}
+                            className="capitalize"
+                          >
                             {order.status}
                           </Badge>
-                          <p className="text-xs text-muted-foreground">{order.date || "Date unavailable"}</p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Clock4 className="h-4 w-4" />
+                            <span>{order.eta || "Delivery details coming soon"}</span>
+                          </div>
                         </div>
                       </div>
-                    ))}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium">No current orders</h3>
+                    <p className="text-muted-foreground mt-1">Your active orders will appear here</p>
+                    <Button className="mt-4" onClick={() => navigate('/products')}>
+                      Start Shopping
+                    </Button>
                   </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-card">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl">Order history</CardTitle>
+                  <p className="text-sm text-muted-foreground">Past purchases and receipts</p>
+                </div>
+                <Badge variant="outline">{orderHistory.length} completed</Badge>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {orderHistory.length ? (
+                  orderHistory.map((order) => (
+                    <div key={order.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
+                      <div className="space-y-1">
+                        <p className="font-semibold">{order.id}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {order.items} item{order.items !== 1 ? "s" : ""} · {order.total}
+                        </p>
+                      </div>
+                      <div className="text-right space-y-1">
+                        <Badge variant="secondary" className="capitalize">
+                          {order.status}
+                        </Badge>
+                        <p className="text-xs text-muted-foreground">{order.date || "Date unavailable"}</p>
+                      </div>
+                    </div>
+                  ))
                 ) : (
                   <div className="text-center py-8">
                     <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -263,7 +304,12 @@ const Profile = () => {
             </CardHeader>
             <CardContent>
               <EditProfileForm 
-                user={user} 
+                user={{
+                  fullName: user.fullName || "",
+                  email: user.email || "",
+                  phone: user.phone,
+                  address: user.address,
+                }} 
                 onUpdate={async (data) => {
                   await handleUpdateProfile(data);
                   setIsEditing(false);
