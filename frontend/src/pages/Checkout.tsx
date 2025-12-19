@@ -68,7 +68,7 @@ const Checkout = () => {
     postalCode: '',
     country: 'India'
   });
-  const [saveShippingAddress, setSaveShippingAddress] = useState(false);
+  const [saveShippingAddress, setSaveShippingAddress] = useState(!!user?.shippingAddress);
 
   const getAuthHeaders = () => {
     try {
@@ -93,7 +93,12 @@ const Checkout = () => {
         const userData = await res.json();
         setUser(userData);
         if (userData.shippingAddress) {
-          setShippingAddress(userData.shippingAddress);
+          setShippingAddress(prev => ({
+            ...prev,
+            ...userData.shippingAddress,
+            country: userData.shippingAddress.country || 'India' // Ensure country has a default
+          }));
+          setSaveShippingAddress(true);
         }
       }
     } catch (error) {
@@ -252,13 +257,27 @@ const Checkout = () => {
 
       // Save shipping address to profile if requested
       if (saveShippingAddress && user) {
-        const success = await updateUserProfile({ shippingAddress });
+        const success = await updateUserProfile({ 
+          shippingAddress: {
+            ...shippingAddress,
+            country: shippingAddress.country || 'India' // Ensure country is always set
+          } 
+        });
         if (!success) {
           toast({
             variant: "destructive",
             title: "Error",
             description: "Failed to save shipping address. You can continue checkout, but the address won't be saved.",
           });
+        } else {
+          // Update local user state with the new shipping address
+          setUser(prev => prev ? {
+            ...prev,
+            shippingAddress: {
+              ...shippingAddress,
+              country: shippingAddress.country || 'India'
+            }
+          } : null);
         }
       }
     }
@@ -304,9 +323,9 @@ const Checkout = () => {
       });
 
       // Redirect to order confirmation page after a short delay
-      setTimeout(() => {
-        navigate(`/profile`);
-      }, 2000);
+      // setTimeout(() => {
+      //   navigate(`/profile`);
+      // }, 2000);
       
     } catch (error: any) {
       console.error('Order placement error:', error);
