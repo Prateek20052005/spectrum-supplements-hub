@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { X, Plus, Edit, Trash2, Package, User, DollarSign } from "lucide-react";
 import { formatINR } from "@/utils/currency";
+import { CATEGORIES } from "@/constants/categories";
 
 type Product = {
   _id?: string;
@@ -360,12 +361,22 @@ const Admin = () => {
                       </div>
                       <div className="space-y-1">
                         <Label htmlFor="category">Category</Label>
-                        <Input
-                          id="category"
-                          value={form.category}
-                          onChange={(e) => setForm({ ...form, category: e.target.value })}
-                          placeholder="e.g., Protein, Vitamins"
-                        />
+                        <Select
+                          value={form.category || ""}
+                          onValueChange={(value) => setForm({ ...form, category: value })}
+                        >
+                          <SelectTrigger id="category">
+                            <SelectValue placeholder="Select a category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CATEGORIES.map((c) => (
+                              <SelectItem key={c.slug} value={c.name}>
+                                {c.name}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="Uncategorized">Uncategorized</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                     <div className="space-y-1">
