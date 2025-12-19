@@ -66,14 +66,8 @@ const ProductDetail = () => {
         const data = await res.json();
         setProduct(data);
         // Set the first flavour as selected if available
-<<<<<<< HEAD
-        if (data.flavours?.length > 0) {
-          setSelectedFlavour(data.flavours[0]);
-        }
-=======
         const fs = (data?.flavours || []).filter(Boolean);
         setSelectedFlavour(fs.length > 0 ? fs[0] : null);
->>>>>>> 5881cdc (merged)
       } catch (error: any) {
         toast({
           variant: "destructive",
@@ -121,14 +115,8 @@ const ProductDetail = () => {
   const handleAddToCart = async () => {
     if (!product) return;
 
-<<<<<<< HEAD
-    // Check if a flavour is selected when the product has flavours
-    const hasFlavours = product.flavours && product.flavours.length > 0;
-    if (hasFlavours && !selectedFlavour) {
-=======
     const availableFlavours = (product.flavours || []).filter(Boolean);
     if (availableFlavours.length > 0 && !selectedFlavour) {
->>>>>>> 5881cdc (merged)
       toast({
         variant: "destructive",
         title: "Select a flavour",
@@ -171,11 +159,7 @@ const ProductDetail = () => {
         body: JSON.stringify({ 
           productId: product._id, 
           quantity: 1,
-<<<<<<< HEAD
-          flavour: selectedFlavour || undefined
-=======
           flavour: selectedFlavour || null
->>>>>>> 5881cdc (merged)
         }),
       });
 
@@ -390,10 +374,6 @@ const ProductDetail = () => {
                       key={f}
                       type="button"
                       onClick={() => setSelectedFlavour(f)}
-<<<<<<< HEAD
-=======
-<<<<<<< Updated upstream
->>>>>>> 5881cdc (merged)
                       className={`inline-flex transition-all ${
                         selectedFlavour === f 
                           ? 'ring-2 ring-offset-2 ring-primary scale-105' 
@@ -404,16 +384,6 @@ const ProductDetail = () => {
                         variant={selectedFlavour === f ? 'default' : 'secondary'}
                         className="px-3 py-1.5 text-sm font-medium"
                       >
-<<<<<<< HEAD
-=======
-=======
-                      className={`inline-flex transition-colors ${
-                        selectedFlavour === f ? 'ring-2 ring-offset-2 ring-primary' : ''
-                      }`}
-                    >
-                      <Badge variant={selectedFlavour === f ? 'default' : 'secondary'} className="px-3 py-1">
->>>>>>> Stashed changes
->>>>>>> 5881cdc (merged)
                         {f}
                       </Badge>
                     </button>
