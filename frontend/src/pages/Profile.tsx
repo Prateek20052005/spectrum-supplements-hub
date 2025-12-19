@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/components/ui/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,50 +8,135 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Mail, Phone, MapPin, Package, Clock4, LogOut, LogIn, ShieldCheck } from "lucide-react";
-
-type OrderSummary = {
-  id: string;
-  status: string;
-  items: number;
-  total: string;
-  date?: string;
-  eta?: string;
-};
+import { Mail, Phone, MapPin, Package, Clock4, LogOut, LogIn, ShieldCheck, Truck, CheckCircle } from "lucide-react";
+import { type Order, type OrderStatus } from "@/types/order";
+import { formatINR } from "@/utils/currency";
 
 type UserProfile = {
-  fullName?: string;
-  email?: string;
+  _id: string;
+  fullName: string;
+  email: string;
   phone?: string;
   address?: string;
-  currentOrders?: OrderSummary[];
-  orderHistory?: OrderSummary[];
+  role?: string;
 };
-
-const sampleCurrentOrders: OrderSummary[] = [
-  { id: "ORD-3012", status: "Preparing", items: 2, total: "₹7,200", eta: "Arrives in 2-3 days" },
-  { id: "ORD-3005", status: "Shipped", items: 1, total: "₹3,500", eta: "On the way" },
-];
-
-const sampleOrderHistory: OrderSummary[] = [
-  { id: "ORD-2988", status: "Delivered", items: 3, total: "₹10,000", date: "Nov 23, 2025" },
-  { id: "ORD-2950", status: "Delivered", items: 1, total: "₹3,200", date: "Oct 10, 2025" },
-];
 
 const Profile = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
+
+  const getAuthHeaders = () => {
+    try {
+      const userInfoRaw = localStorage.getItem("userInfo");
+      if (!userInfoRaw) return null;
+      const userInfo = JSON.parse(userInfoRaw);
+      const token = userInfo?.token;
+      if (!token) return null;
+      return {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  const fetchOrders = async () => {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/orders/myorders`, {
+        headers,
+      });
+
+      if (response.ok) {
+        const ordersData = await response.json();
+        setOrders(ordersData);
+      }
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    }
+  };
+
+  const fetchUserProfile = async () => {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/profile`, {
+        headers,
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
 
   useEffect(() => {
-    const saved = localStorage.getItem("userInfo");
-    if (saved) {
-      try {
-        setUser(JSON.parse(saved));
-      } catch {
-        setUser(null);
-      }
-    }
+    const initializeProfile = async () => {
+      setLoading(true);
+      await Promise.all([fetchUserProfile(), fetchOrders()]);
+      setLoading(false);
+    };
+
+    initializeProfile();
   }, []);
+
+  const getStatusColor = (status: OrderStatus) => {
+    switch (status) {
+      case "placed":
+        return "bg-yellow-100 text-yellow-800";
+      case "confirmed":
+        return "bg-blue-100 text-blue-800";
+      case "processing":
+        return "bg-purple-100 text-purple-800";
+      case "shipped":
+        return "bg-indigo-100 text-indigo-800";
+      case "delivered":
+        return "bg-green-100 text-green-800";
+      case "cancelled":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getStatusIcon = (status: OrderStatus) => {
+    switch (status) {
+      case "placed":
+        return <Clock4 className="h-4 w-4" />;
+      case "confirmed":
+        return <CheckCircle className="h-4 w-4" />;
+      case "processing":
+        return <Package className="h-4 w-4" />;
+      case "shipped":
+        return <Truck className="h-4 w-4" />;
+      case "delivered":
+        return <CheckCircle className="h-4 w-4" />;
+      case "cancelled":
+        return <Package className="h-4 w-4" />;
+      default:
+        return <Package className="h-4 w-4" />;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
 
   const initials = useMemo(() => {
     const name = user?.fullName || user?.email;
@@ -60,8 +146,13 @@ const Profile = () => {
     return `${parts[0][0]?.toUpperCase() || ""}${parts[1][0]?.toUpperCase() || ""}`;
   }, [user?.fullName, user?.email]);
 
-  const currentOrders = user?.currentOrders?.length ? user.currentOrders : sampleCurrentOrders;
-  const orderHistory = user?.orderHistory?.length ? user.orderHistory : sampleOrderHistory;
+  const currentOrders = useMemo(() => {
+    return orders.filter((o) => o.orderStatus !== "delivered" && o.orderStatus !== "cancelled");
+  }, [orders]);
+
+  const orderHistory = useMemo(() => {
+    return orders.filter((o) => o.orderStatus === "delivered" || o.orderStatus === "cancelled");
+  }, [orders]);
 
   const handleLogout = () => {
     localStorage.removeItem("userInfo");
@@ -166,29 +257,39 @@ const Profile = () => {
                   <Badge variant="secondary">{currentOrders.length} active</Badge>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {currentOrders.length ? (
+                  {loading ? (
+                    <p className="text-sm text-muted-foreground">Loading orders...</p>
+                  ) : currentOrders.length ? (
                     currentOrders.map((order) => (
-                      <div key={order.id} className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
+                      <div
+                        key={order._id}
+                        className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm cursor-pointer hover:bg-muted/30 transition-colors"
+                        onClick={() => navigate(`/order/${order._id}`)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            navigate(`/order/${order._id}`);
+                          }
+                        }}
+                      >
                         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                           <div className="flex items-center gap-3">
                             <Package className="h-5 w-5 text-primary" />
                             <div>
-                              <p className="font-semibold">{order.id}</p>
+                              <p className="font-semibold">#{order._id.slice(-6)}</p>
                               <p className="text-sm text-muted-foreground">
-                                {order.items} item{order.items !== 1 ? "s" : ""} · {order.total}
+                                {order.items.length} item{order.items.length !== 1 ? "s" : ""} · {formatINR(order.totalAmount)}
                               </p>
                             </div>
                           </div>
                           <div className="flex flex-col items-start md:items-end gap-1">
-                            <Badge
-                              variant={order.status === "Delivered" ? "secondary" : "outline"}
-                              className="capitalize"
-                            >
-                              {order.status}
+                            <Badge variant="outline" className="capitalize">
+                              {order.orderStatus}
                             </Badge>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <Clock4 className="h-4 w-4" />
-                              <span>{order.eta || "Delivery details coming soon"}</span>
+                              <span>Placed on {formatDate(order.createdAt)}</span>
                             </div>
                           </div>
                         </div>
@@ -209,20 +310,33 @@ const Profile = () => {
                   <Badge variant="outline">{orderHistory.length} completed</Badge>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {orderHistory.length ? (
+                  {loading ? (
+                    <p className="text-sm text-muted-foreground">Loading orders...</p>
+                  ) : orderHistory.length ? (
                     orderHistory.map((order) => (
-                      <div key={order.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
+                      <div
+                        key={order._id}
+                        className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors"
+                        onClick={() => navigate(`/order/${order._id}`)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            navigate(`/order/${order._id}`);
+                          }
+                        }}
+                      >
                         <div className="space-y-1">
-                          <p className="font-semibold">{order.id}</p>
+                          <p className="font-semibold">#{order._id.slice(-6)}</p>
                           <p className="text-sm text-muted-foreground">
-                            {order.items} item{order.items !== 1 ? "s" : ""} · {order.total}
+                            {order.items.length} item{order.items.length !== 1 ? "s" : ""} · {formatINR(order.totalAmount)}
                           </p>
                         </div>
                         <div className="text-right space-y-1">
                           <Badge variant="secondary" className="capitalize">
-                            {order.status}
+                            {order.orderStatus}
                           </Badge>
-                          <p className="text-xs text-muted-foreground">{order.date || "Date unavailable"}</p>
+                          <p className="text-xs text-muted-foreground">{formatDate(order.createdAt)}</p>
                         </div>
                       </div>
                     ))
