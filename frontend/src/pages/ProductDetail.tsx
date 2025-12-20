@@ -12,6 +12,8 @@ type Product = {
   _id: string;
   name: string;
   price: number;
+  originalPrice?: number;
+  discountedPrice?: number;
   brand?: string;
   category?: string;
   description?: string;
@@ -37,6 +39,7 @@ const ProductDetail = () => {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedFlavour, setSelectedFlavour] = useState<string | null>(null);
   const [canReview, setCanReview] = useState<boolean>(false);
   const [reviewReason, setReviewReason] = useState<string | null>(null);
@@ -83,6 +86,10 @@ const ProductDetail = () => {
       fetchProduct();
     }
   }, [id, toast]);
+
+  useEffect(() => {
+    setSelectedImageIndex(0);
+  }, [product?._id]);
 
   useEffect(() => {
     const fetchCanReview = async () => {
@@ -274,10 +281,18 @@ const ProductDetail = () => {
     );
   }
 
-  const imageUrl = product.images?.[0] || "/placeholder.svg";
+  const images = (product.images || []).filter(Boolean);
+  const imageUrl = images[selectedImageIndex] || "/placeholder.svg";
   const rating = product.rating || 0;
   const reviewCount = product.reviews?.length || 0;
   const flavours = (product.flavours || []).filter(Boolean);
+  const sellingPrice = product.discountedPrice ?? product.price;
+  const discountPercent = (() => {
+    const o = product.originalPrice;
+    const p = sellingPrice;
+    if (!o || !p || o <= 0 || p <= 0 || p >= o) return null;
+    return Math.floor(((o - p) / o) * 100);
+  })();
   const reviewsSorted = [...(product.reviews || [])].sort((a, b) => {
     const da = a?.date ? new Date(a.date).getTime() : 0;
     const db = b?.date ? new Date(b.date).getTime() : 0;
@@ -293,8 +308,33 @@ const ProductDetail = () => {
             <img
               src={imageUrl}
               alt={product.name}
-              className="w-full rounded-lg shadow-lg"
+              className="w-full rounded-lg shadow-lg mb-4"
             />
+            {images.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {images.map((img, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setSelectedImageIndex(idx)}
+                    className={`flex-shrink-0 border-2 rounded-lg overflow-hidden transition-all ${
+                      selectedImageIndex === idx
+                        ? "border-primary ring-2 ring-primary/20"
+                        : "border-transparent hover:border-muted-foreground/30"
+                    }`}
+                  >
+                    <img
+                      src={img}
+                      alt={`${product.name} - Image ${idx + 1}`}
+                      className="w-20 h-20 object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/placeholder.svg";
+                      }}
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>
@@ -323,9 +363,21 @@ const ProductDetail = () => {
               </div>
             )}
 
-            <p className="text-3xl font-bold text-primary mb-6">
-              {formatINR(product.price)}
-            </p>
+            <div className="flex items-center gap-3 mb-6">
+              <p className="text-3xl font-bold text-primary">
+                {formatINR(sellingPrice)}
+              </p>
+              {product.originalPrice && product.originalPrice > sellingPrice && (
+                <p className="text-muted-foreground line-through text-lg">
+                  {formatINR(product.originalPrice)}
+                </p>
+              )}
+              {discountPercent !== null && (
+                <Badge className="ml-1" variant="secondary">
+                  {discountPercent}% OFF
+                </Badge>
+              )}
+            </div>
 
             {product.description && (
               <p className="text-muted-foreground mb-6 leading-relaxed">

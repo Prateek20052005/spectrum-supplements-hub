@@ -40,13 +40,16 @@ export const getProductById = asyncHandler(async (req, res) => {
  * @access Private/Admin
  */
 export const createProduct = asyncHandler(async (req, res) => {
-  const { name, brand, category, description, price, stock, images, flavours } = req.body;
+  const { name, brand, category, description, price, originalPrice, discountedPrice, stock, images, flavours } = req.body;
+  const sellingPrice = discountedPrice ?? price;
   const product = new Product({
     name,
     brand,
     category,
     description,
-    price,
+    originalPrice,
+    discountedPrice,
+    price: sellingPrice,
     stock,
     images,
     flavours: Array.isArray(flavours)
@@ -68,7 +71,7 @@ export const createProduct = asyncHandler(async (req, res) => {
  * @access Private/Admin
  */
 export const updateProduct = asyncHandler(async (req, res) => {
-  const { name, brand, category, description, price, stock, images, flavours } = req.body;
+  const { name, brand, category, description, price, originalPrice, discountedPrice, stock, images, flavours } = req.body;
   const product = await Product.findById(req.params.id);
   if (!product) return res.status(404).json({ message: "Product not found" });
 
@@ -76,7 +79,13 @@ export const updateProduct = asyncHandler(async (req, res) => {
   product.brand = brand || product.brand;
   product.category = category || product.category;
   product.description = description || product.description;
-  product.price = price ?? product.price;
+  if (originalPrice !== undefined) {
+    product.originalPrice = originalPrice;
+  }
+  if (discountedPrice !== undefined) {
+    product.discountedPrice = discountedPrice;
+  }
+  product.price = discountedPrice ?? price ?? product.price;
   product.stock = stock ?? product.stock;
   product.images = images || product.images;
   if (flavours !== undefined) {

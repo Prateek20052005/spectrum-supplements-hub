@@ -19,6 +19,8 @@ type Product = {
   _id?: string;
   name: string;
   price: number;
+  originalPrice?: number;
+  discountedPrice?: number;
   brand?: string;
   category?: string;
   description?: string;
@@ -62,6 +64,8 @@ const Admin = () => {
   const [form, setForm] = useState<Product & { imageUrls: string }>({
     name: "",
     price: 0,
+    originalPrice: 0,
+    discountedPrice: 0,
     brand: "",
     category: "",
     description: "",
@@ -175,7 +179,37 @@ const Admin = () => {
       .split(/[,\n]/)
       .map((url) => url.trim())
       .filter((url) => url.length > 0);
-    setForm({ ...form, imageUrls: value, images: urls });
+    const existing = Array.isArray(form.images) ? form.images : [];
+    const keepNonUrl = existing.filter(
+      (img) => img && !String(img).startsWith("http://") && !String(img).startsWith("https://")
+    );
+    setForm({ ...form, imageUrls: value, images: [...keepNonUrl, ...urls] });
+  };
+
+  const handleImageFilesSelected = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    try {
+      const toDataUrl = (file: File) =>
+        new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsDataURL(file);
+        });
+
+      const next = await Promise.all(Array.from(files).map(toDataUrl));
+      const existing = Array.isArray(form.images) ? form.images : [];
+      setForm({
+        ...form,
+        images: [...existing, ...next].filter(Boolean),
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Image upload failed",
+        description: error.message || "Could not read one or more files.",
+      });
+    }
   };
 
   const parseFlavours = (value: string) => {
@@ -186,11 +220,13 @@ const Admin = () => {
   };
 
   const handleSubmitProduct = async () => {
-    if (!form.name || !form.price) {
+    const sellingPrice =
+      (form.discountedPrice ?? 0) > 0 ? form.discountedPrice : form.price;
+    if (!form.name || !sellingPrice) {
       toast({
         variant: "destructive",
         title: "Missing product data",
-        description: "Name and price are required.",
+        description: "Name and discounted price are required.",
       });
       return;
     }
@@ -206,7 +242,9 @@ const Admin = () => {
 
       const payload = {
         name: form.name,
-        price: form.price,
+        originalPrice: form.originalPrice || undefined,
+        discountedPrice: sellingPrice,
+        price: sellingPrice,
         brand: form.brand || undefined,
         category: form.category || undefined,
         description: form.description || undefined,
@@ -234,6 +272,8 @@ const Admin = () => {
       setForm({
         name: "",
         price: 0,
+        originalPrice: 0,
+        discountedPrice: 0,
         brand: "",
         category: "",
         description: "",
@@ -260,6 +300,8 @@ const Admin = () => {
     setForm({
       name: product.name,
       price: product.price,
+      originalPrice: product.originalPrice || 0,
+      discountedPrice: product.discountedPrice || product.price || 0,
       brand: product.brand || "",
       category: product.category || "",
       description: product.description || "",
@@ -375,17 +417,45 @@ const Admin = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <Label htmlFor="price">Price (₹) *</Label>
+                        <Label htmlFor="originalPrice">Original Price (₹)</Label>
+                        <Input
+                          id="originalPrice"
+                          type="number"
+                          step="1"
+                          value={form.originalPrice || 0}
+                          onChange={(e) =>
+                            setForm({ ...form, originalPrice: Number(e.target.value) || 0 })
+                          }
+                          placeholder="1999"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="discountedPrice">Discounted Price (₹) *</Label>
+                        <Input
+                          id="discountedPrice"
+                          type="number"
+                          step="1"
+                          value={form.discountedPrice || 0}
+                          onChange={(e) =>
+                            setForm({ ...form, discountedPrice: Number(e.target.value) || 0 })
+                          }
+                          placeholder="1499"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="price">(Legacy) Price (₹)</Label>
                         <Input
                           id="price"
                           type="number"
-                          step="0.01"
+                          step="1"
                           value={form.price}
                           onChange={(e) =>
                             setForm({ ...form, price: Number(e.target.value) || 0 })
                           }
-                          placeholder="49.99"
-                          required
+                          placeholder="(auto)"
                         />
                       </div>
                       <div className="space-y-1">
@@ -453,6 +523,19 @@ const Admin = () => {
                       <p className="text-xs text-muted-foreground">
                         Separate multiple URLs with commas or new lines
                       </p>
+                      <div className="space-y-1">
+                        <Label htmlFor="imageFiles">Upload Images (from device)</Label>
+                        <Input
+                          id="imageFiles"
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={(e) => handleImageFilesSelected(e.target.files)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          You can select multiple images. They will be saved with the product.
+                        </p>
+                      </div>
                       {form.images && form.images.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-2">
                           {form.images.map((img, idx) => (
@@ -497,6 +580,8 @@ const Admin = () => {
                             setForm({
                               name: "",
                               price: 0,
+                              originalPrice: 0,
+                              discountedPrice: 0,
                               brand: "",
                               category: "",
                               description: "",

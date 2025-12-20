@@ -9,6 +9,8 @@ type Product = {
   _id: string;
   name: string;
   price: number;
+  originalPrice?: number;
+  discountedPrice?: number;
   category?: string;
   images?: string[];
   rating?: number;
@@ -68,7 +70,8 @@ const CategoryView = () => {
                 _id={product._id}
                 id={product._id}
                 name={product.name}
-                price={product.price}
+                price={product.discountedPrice ?? product.price}
+                originalPrice={product.originalPrice}
                 rating={product.rating || 0}
                 reviews={product.reviews?.length || 0}
                 image={product.images?.[0] || "/placeholder.svg"}

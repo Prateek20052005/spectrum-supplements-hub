@@ -38,6 +38,14 @@ const ProductCard = ({
 
   const hasOriginalPrice =
     originalPrice !== undefined && originalPrice !== null && `${originalPrice}`.length > 0;
+
+  const discountPercent = (() => {
+    if (!hasOriginalPrice) return null;
+    const o = typeof originalPrice === "number" ? originalPrice : Number(originalPrice);
+    const p = typeof price === "number" ? price : Number(price);
+    if (!Number.isFinite(o) || !Number.isFinite(p) || o <= 0 || p <= 0 || p >= o) return null;
+    return Math.floor(((o - p) / o) * 100);
+  })();
   
   // Prioritize _id (MongoDB ObjectId) over id (numeric)
   const productId = _id || (id && typeof id === 'string' && id.length > 10 ? id : null);
@@ -130,11 +138,15 @@ const ProductCard = ({
           alt={name}
           className="w-full h-48 object-cover rounded-xl bg-gradient-product"
         />
-        {badge && (
+        {discountPercent !== null ? (
+          <span className="absolute top-3 left-3 bg-accent text-accent-foreground text-xs px-3 py-1 rounded-full font-medium">
+            {discountPercent}% OFF
+          </span>
+        ) : badge ? (
           <span className="absolute top-3 left-3 bg-accent text-accent-foreground text-xs px-3 py-1 rounded-full font-medium">
             {badge}
           </span>
-        )}
+        ) : null}
         <Button
           variant="ghost"
           size="sm"
