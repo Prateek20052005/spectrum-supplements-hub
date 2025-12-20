@@ -690,8 +690,15 @@ const Admin = () => {
                               <div className="text-xs text-muted-foreground">
                                 <div className="font-medium">Products</div>
                                 {order.items.map((item, idx) => (
-                                  <div key={idx}>
-                                    {item.name || "Item"} × {item.quantity || 1}
+                                  <div key={idx} className="flex flex-col">
+                                    <div>
+                                      {item.name || "Item"} × {item.quantity || 1}
+                                    </div>
+                                    {item.flavour && (
+                                      <div className="text-xs text-muted-foreground ml-2">
+                                        Flavour: <span className="font-medium">{item.flavour}</span>
+                                      </div>
+                                    )}
                                   </div>
                                 ))}
                               </div>

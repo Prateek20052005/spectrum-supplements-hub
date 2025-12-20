@@ -230,6 +230,11 @@ const Cart = () => {
                       <h3 className="font-semibold text-lg mb-2">
                         {product?.name || "Unknown Product"}
                       </h3>
+                      {item.flavour && (
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Flavour: <span className="text-foreground font-medium">{item.flavour}</span>
+                        </p>
+                      )}
                       <p className="text-primary font-bold mb-4">
                         {formatINR(product?.price || 0)}
                       </p>

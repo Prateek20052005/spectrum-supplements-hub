@@ -403,9 +403,16 @@ const Profile = () => {
                                 <p className="text-xs font-medium text-muted-foreground">Products</p>
                                 <div className="space-y-1">
                                   {(o.items || []).map((it, idx) => (
-                                    <div key={idx} className="text-sm flex justify-between gap-4">
-                                      <span className="truncate">{it.name || "Item"}</span>
-                                      <span className="text-muted-foreground">× {it.quantity || 1}</span>
+                                    <div key={idx} className="text-sm flex flex-col gap-0.5">
+                                      <div className="flex justify-between gap-4">
+                                        <span className="truncate">{it.name || "Item"}</span>
+                                        <span className="text-muted-foreground">× {it.quantity || 1}</span>
+                                      </div>
+                                      {it.flavour && (
+                                        <div className="text-xs text-muted-foreground">
+                                          Flavour: <span className="font-medium text-foreground">{it.flavour}</span>
+                                        </div>
+                                      )}
                                     </div>
                                   ))}
                                 </div>
@@ -486,9 +493,16 @@ const Profile = () => {
                                 <p className="text-xs font-medium text-muted-foreground">Products</p>
                                 <div className="space-y-1">
                                   {(o.items || []).map((it, idx) => (
-                                    <div key={idx} className="text-sm flex justify-between gap-4">
-                                      <span className="truncate">{it.name || "Item"}</span>
-                                      <span className="text-muted-foreground">× {it.quantity || 1}</span>
+                                    <div key={idx} className="text-sm flex flex-col gap-0.5">
+                                      <div className="flex justify-between gap-4">
+                                        <span className="truncate">{it.name || "Item"}</span>
+                                        <span className="text-muted-foreground">× {it.quantity || 1}</span>
+                                      </div>
+                                      {it.flavour && (
+                                        <div className="text-xs text-muted-foreground">
+                                          Flavour: <span className="font-medium text-foreground">{it.flavour}</span>
+                                        </div>
+                                      )}
                                     </div>
                                   ))}
                                 </div>

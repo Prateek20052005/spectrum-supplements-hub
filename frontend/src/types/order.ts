@@ -11,6 +11,7 @@ export type PaymentStatus = "pending" | "paid";
 export interface OrderItem {
   productId: string;
   name?: string;
+  flavour?: string | null;
   price?: number;
   quantity: number;
 }
