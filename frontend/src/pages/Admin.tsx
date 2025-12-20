@@ -13,6 +13,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { X, Plus, Edit, Trash2, Package, User, DollarSign, ChevronDown } from "lucide-react";
 import { formatINR } from "@/utils/currency";
 import { CATEGORIES } from "@/constants/categories";
+import type { OrderItem } from "@/types/order";
 
 type Product = {
   _id?: string;
@@ -34,7 +35,7 @@ type Order = {
   totalPrice?: number;
   orderStatus?: string;
   status?: string;
-  items?: Array<{ name?: string; quantity?: number; price?: number }>;
+  items?: OrderItem[];
   deliveryAddress?: {
     street?: string;
     city?: string;
