@@ -29,3 +29,15 @@ export const admin = (req, res, next) => {
     res.status(403).json({ message: "Require admin role" });
   }
 };
+
+export const verified = (req, res, next) => {
+  if (req.user?.role === "admin") return next();
+
+  if (req.user?.emailVerified) {
+    return next();
+  }
+
+  return res
+    .status(403)
+    .json({ message: "Email not verified", code: "EMAIL_NOT_VERIFIED" });
+};

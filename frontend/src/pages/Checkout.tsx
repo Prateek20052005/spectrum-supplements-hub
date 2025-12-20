@@ -340,6 +340,15 @@ const Checkout = () => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        if (errorData?.code === "EMAIL_NOT_VERIFIED") {
+          toast({
+            variant: "destructive",
+            title: "Email not verified",
+            description: "Please verify your email before placing an order.",
+          });
+          navigate("/verify-email", { state: { email: user?.email } });
+          return;
+        }
         throw new Error(errorData.message || 'Failed to place order');
       }
 

@@ -13,7 +13,10 @@ const userSchema = new mongoose.Schema(
       postalCode: { type: String },
       country: { type: String, default: "India" },
     },
-    role: { type: String, enum: ["customer", "admin"], default: "customer" }
+    role: { type: String, enum: ["customer", "admin"], default: "customer" },
+    emailVerified: { type: Boolean, default: false },
+    emailVerificationToken: { type: String },
+    emailVerificationExpires: { type: Date },
   },
   { timestamps: true }
 );

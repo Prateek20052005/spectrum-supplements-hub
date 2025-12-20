@@ -47,15 +47,12 @@ const Register = () => {
         throw new Error(data?.message || "Registration failed");
       }
 
-      // Auto-login after successful registration
-      localStorage.setItem("userInfo", JSON.stringify(data));
-
       toast({
         title: "Account created",
-        description: `Welcome, ${data.fullName || data.email}!`,
+        description: "Please verify your email before logging in.",
       });
 
-      navigate("/");
+      navigate("/verify-email", { state: { email } });
     } catch (error: any) {
       toast({
         variant: "destructive",

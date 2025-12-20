@@ -1,12 +1,25 @@
 // server.js
-import express from "express";
-import mongoose from "mongoose";
-import dotenv from "dotenv";
-import cors from "cors";
+import { config } from 'dotenv';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
-dotenv.config();
+// Configure dotenv before any other imports
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+config({ path: path.join(__dirname, '.env') });
+
+// Now import other modules
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import userRoutes from './routes/userRoutes.js';
+import productRoutes from './routes/productRoutes.js';
+import orderRoutes from './routes/orderRoutes.js';
+import { notFound, errorHandler } from './middleware/errorMiddleware.js';
 
 const app = express();
+
+// Rest of your server configuration...
 
 // 1️⃣ Middleware
 app.use(express.json());       // Parse JSON bodies
@@ -17,18 +30,13 @@ app.get("/", (req, res) => {
   res.send("API running successfully 🚀");
 });
 
-// 3️⃣ Import your routes
-import productRoutes from "./routes/productRoutes.js";
-import userRoutes from "./routes/userRoutes.js";
-import orderRoutes from "./routes/orderRoutes.js";
-import cartRoutes from "./routes/cartRoutes.js";
+// 3️⃣ Routes are already imported at the top
 
 // 4️⃣ Use routes
 // Public or protected routes go here
 app.use("/api/products", productRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/orders", orderRoutes);
-app.use("/api/cart", cartRoutes);
 
 // 5️⃣ 404 handler (optional)
 app.use((req, res) => {

@@ -3,6 +3,35 @@ import asyncHandler from "express-async-handler";
 import User from "../models/user.js";
 import generateToken from "../utils/generateToken.js";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import sendEmail from "../utils/sendEmail.js";
+
+const createEmailVerificationToken = () => {
+  const token = crypto.randomBytes(32).toString("hex");
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const expires = new Date(Date.now() + 1000 * 60 * 60 * 24);
+  return { token, tokenHash, expires };
+};
+
+const getFrontendBaseUrl = () => {
+  return (
+    process.env.FRONTEND_BASE_URL ||
+    process.env.CLIENT_URL ||
+    "http://localhost:5173"
+  );
+};
+
+const sendVerificationEmail = async ({ email, fullName, token }) => {
+  const url = `${getFrontendBaseUrl()}/verify-email?token=${encodeURIComponent(
+    token
+  )}&email=${encodeURIComponent(email)}`;
+
+  const subject = "Verify your email";
+  const text = `Hi ${fullName || ""}\n\nPlease verify your email by opening this link:\n${url}\n\nIf you did not create an account, you can ignore this email.`;
+  const html = `<p>Hi ${fullName || ""}</p><p>Please verify your email by opening this link:</p><p><a href="${url}">${url}</a></p><p>If you did not create an account, you can ignore this email.</p>`;
+
+  await sendEmail({ to: email, subject, text, html });
+};
 
 /**
  * @desc   Register a new user
@@ -21,6 +50,8 @@ export const registerUser = asyncHandler(async (req, res) => {
   const salt = await bcrypt.genSalt(10);
   const hashed = await bcrypt.hash(password, salt);
 
+  const { token, tokenHash, expires } = createEmailVerificationToken();
+
   const user = await User.create({
     fullName,
     email,
@@ -30,15 +61,25 @@ export const registerUser = asyncHandler(async (req, res) => {
       typeof address === "string"
         ? { street: address, country: "India" }
         : address,
+    emailVerified: false,
+    emailVerificationToken: tokenHash,
+    emailVerificationExpires: expires,
   });
 
   if (user) {
+    await sendVerificationEmail({
+      email: user.email,
+      fullName: user.fullName,
+      token,
+    });
+
     res.status(201).json({
       _id: user._id,
       fullName: user.fullName,
       email: user.email,
       role: user.role,
-      token: generateToken(user._id),
+      emailVerified: user.emailVerified,
+      message: "Registration successful. Please verify your email.",
     });
   } else {
     res.status(400).json({ message: "Invalid user data" });
@@ -55,6 +96,12 @@ export const authUser = asyncHandler(async (req, res) => {
 
   const user = await User.findOne({ email });
   if (user && (await bcrypt.compare(password, user.password))) {
+    if (user.role !== "admin" && !user.emailVerified) {
+      return res
+        .status(403)
+        .json({ message: "Email not verified", code: "EMAIL_NOT_VERIFIED" });
+    }
+
     res.json({
       _id: user._id,
       fullName: user.fullName,
@@ -62,11 +109,84 @@ export const authUser = asyncHandler(async (req, res) => {
       role: user.role,
       phone: user.phone,
       address: user.address,
+      emailVerified: user.emailVerified,
       token: generateToken(user._id),
     });
   } else {
     res.status(401).json({ message: "Invalid email or password" });
   }
+});
+
+export const verifyEmail = asyncHandler(async (req, res) => {
+  const token = req.query.token || req.body.token;
+  const email = req.query.email || req.body.email;
+
+  if (!token || !email) {
+    return res.status(400).json({ message: "Missing token or email" });
+  }
+
+  const user = await User.findOne({ email });
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  if (user.emailVerified) {
+    return res.json({ message: "Email already verified" });
+  }
+
+  if (!user.emailVerificationToken || !user.emailVerificationExpires) {
+    return res.status(400).json({ message: "Verification token not found" });
+  }
+
+  if (user.emailVerificationExpires.getTime() < Date.now()) {
+    return res.status(400).json({ message: "Verification token expired" });
+  }
+
+  const tokenHash = crypto
+    .createHash("sha256")
+    .update(String(token))
+    .digest("hex");
+
+  if (tokenHash !== user.emailVerificationToken) {
+    return res.status(400).json({ message: "Invalid verification token" });
+  }
+
+  user.emailVerified = true;
+  user.emailVerificationToken = undefined;
+  user.emailVerificationExpires = undefined;
+  await user.save();
+
+  return res.json({ message: "Email verified" });
+});
+
+export const resendVerification = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+
+  const user = await User.findOne({ email });
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  if (user.emailVerified) {
+    return res.json({ message: "Email already verified" });
+  }
+
+  const { token, tokenHash, expires } = createEmailVerificationToken();
+  user.emailVerificationToken = tokenHash;
+  user.emailVerificationExpires = expires;
+  await user.save();
+
+  await sendVerificationEmail({
+    email: user.email,
+    fullName: user.fullName,
+    token,
+  });
+
+  return res.json({ message: "Verification email sent" });
 });
 
 /**

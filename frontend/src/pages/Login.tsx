@@ -42,6 +42,16 @@ const Login = () => {
       const data = await res.json();
 
       if (!res.ok) {
+        if (data?.code === "EMAIL_NOT_VERIFIED") {
+          toast({
+            variant: "destructive",
+            title: "Email not verified",
+            description: "Please verify your email to log in.",
+          });
+          navigate("/verify-email", { state: { email } });
+          return;
+        }
+
         throw new Error(data?.message || "Login failed");
       }
 

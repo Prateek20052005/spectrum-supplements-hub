@@ -1,6 +1,6 @@
 // backend/routes/orderRoutes.js
 import express from "express";
-import { protect, admin } from "../middleware/authMiddleware.js";
+import { protect, admin, verified } from "../middleware/authMiddleware.js";
 import {
   addOrderItems,
   getOrderById,
@@ -13,11 +13,11 @@ import {
 
 const router = express.Router();
 
-router.post("/", protect, addOrderItems);
-router.get("/myorders", protect, getMyOrders);
-router.get("/:id", protect, getOrderById);
-router.put("/:id/pay", protect, updateOrderToPaid);
-router.put("/:id/cancel", protect, cancelOrder);
+router.post("/", protect, verified, addOrderItems);
+router.get("/myorders", protect, verified, getMyOrders);
+router.get("/:id", protect, verified, getOrderById);
+router.put("/:id/pay", protect, verified, updateOrderToPaid);
+router.put("/:id/cancel", protect, verified, cancelOrder);
 
 // admin
 router.get("/", protect, admin, getOrders);
