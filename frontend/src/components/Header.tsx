@@ -189,11 +189,16 @@ const Header = () => {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center space-x-2">
-            <div className="w-10 h-10 bg-primary-foreground rounded-lg flex items-center justify-center font-bold text-primary text-xl">
-              S
-            </div>
+            <img
+              src="/favicon.png"
+              alt="KSN"
+              className="w-10 h-10 rounded-lg bg-primary-foreground object-contain p-1"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "/placeholder.svg";
+              }}
+            />
             <div className="text-primary-foreground font-bold text-xl">
-              SupplementStore
+              KSN
             </div>
           </div>
 

@@ -1,74 +1,25 @@
 import ProductCard from "./ProductCard";
-import heroProduct1 from "@/assets/hero-product-1.jpg";
-import heroProduct2 from "@/assets/hero-product-2.jpg";
-import heroProduct3 from "@/assets/hero-product-3.jpg";
 
-const FeaturedProducts = () => {
-  const featuredProducts = [
-    {
-      id: 1,
-      name: "Gold Standard 100% Whey",
-      price: 5999,
-      originalPrice: 7999,
-      rating: 4.8,
-      reviews: 1247,
-      image: heroProduct1,
-      badge: "BEST SELLER",
-      category: "Whey Protein"
-    },
-    {
-      id: 2,
-      name: "C4 Original Pre-Workout",
-      price: 3999,
-      originalPrice: 4999,
-      rating: 4.9,
-      reviews: 892,
-      image: heroProduct2,
-      badge: "NEW",
-      category: "Pre-Workout"
-    },
-    {
-      id: 3,
-      name: "Micronized Creatine",
-      price: 2499,
-      originalPrice: 3499,
-      rating: 4.7,
-      reviews: 634,
-      image: heroProduct3,
-      badge: "SALE",
-      category: "Creatine"
-    },
-    {
-      id: 4,
-      name: "Platinum Whey Isolate",
-      price: 6999,
-      originalPrice: 8999,
-      rating: 4.9,
-      reviews: 523,
-      image: heroProduct1,
-      category: "Whey Protein"
-    },
-    {
-      id: 5,
-      name: "Extreme Energy Booster",
-      price: 4499,
-      rating: 4.6,
-      reviews: 387,
-      image: heroProduct2,
-      badge: "LIMITED",
-      category: "Pre-Workout"
-    },
-    {
-      id: 6,
-      name: "Pure Creatine HCl",
-      price: 2999,
-      originalPrice: 3999,
-      rating: 4.8,
-      reviews: 298,
-      image: heroProduct3,
-      category: "Creatine"
-    }
-  ];
+type FeaturedProduct = {
+  _id: string;
+  name: string;
+  price: number;
+  originalPrice?: number;
+  discountedPrice?: number;
+  rating?: number;
+  reviews?: any[];
+  images?: string[];
+  category?: string;
+};
+
+type FeaturedProductsProps = {
+  products: FeaturedProduct[];
+  loading?: boolean;
+  error?: string | null;
+};
+
+const FeaturedProducts = ({ products, loading, error }: FeaturedProductsProps) => {
+  const featuredProducts = (products || []).slice(0, 6);
 
   return (
     <section className="py-20">
@@ -85,9 +36,26 @@ const FeaturedProducts = () => {
 
         {/* Products Grid */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {featuredProducts.map((product) => (
-            <ProductCard key={product.id} {...product} />
-          ))}
+          {loading ? (
+            <div className="text-sm text-muted-foreground">Loading products...</div>
+          ) : error ? (
+            <div className="text-sm text-muted-foreground">{error}</div>
+          ) : (
+            featuredProducts.map((product) => (
+              <ProductCard
+                key={product._id}
+                _id={product._id}
+                id={product._id}
+                name={product.name}
+                price={product.discountedPrice ?? product.price}
+                originalPrice={product.originalPrice}
+                rating={product.rating || 0}
+                reviews={product.reviews?.length || 0}
+                image={product.images?.[0] || "/placeholder.svg"}
+                category={product.category || "Uncategorized"}
+              />
+            ))
+          )}
         </div>
       </div>
     </section>

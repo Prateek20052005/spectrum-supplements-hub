@@ -1,50 +1,29 @@
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import { CATEGORIES } from "@/constants/categories";
 
 const Categories = () => {
-  const categories = [
-    {
-      name: "Whey Proteins",
-      description: "Premium protein powders for muscle growth",
-      productCount: "150+ products",
-      color: "bg-gradient-to-br from-blue-500/20 to-blue-600/30",
-      icon: "💪"
-    },
-    {
-      name: "Pre-Workout",
-      description: "Energy boosters for peak performance",
-      productCount: "85+ products",
-      color: "bg-gradient-to-br from-orange-500/20 to-red-600/30",
-      icon: "⚡"
-    },
-    {
-      name: "Creatine",
-      description: "Pure creatine for strength & power",
-      productCount: "45+ products",
-      color: "bg-gradient-to-br from-green-500/20 to-green-600/30",
-      icon: "🏋️"
-    },
-    {
-      name: "Vitamins",
-      description: "Essential nutrients for health",
-      productCount: "200+ products",
-      color: "bg-gradient-to-br from-yellow-500/20 to-orange-500/30",
-      icon: "🌟"
-    },
-    {
-      name: "Amino Acids",
-      description: "Building blocks for recovery",
-      productCount: "65+ products",
-      color: "bg-gradient-to-br from-purple-500/20 to-purple-600/30",
-      icon: "🧬"
-    },
-    {
-      name: "Mass Gainers",
-      description: "Bulk up with quality calories",
-      productCount: "40+ products",
-      color: "bg-gradient-to-br from-indigo-500/20 to-indigo-600/30",
-      icon: "📈"
-    }
-  ];
+  const navigate = useNavigate();
+
+  const categories = (CATEGORIES || []).map((c, idx) => {
+    const colors = [
+      "bg-gradient-to-br from-blue-500/15 to-blue-600/25",
+      "bg-gradient-to-br from-orange-500/15 to-red-600/25",
+      "bg-gradient-to-br from-emerald-500/15 to-emerald-600/25",
+      "bg-gradient-to-br from-purple-500/15 to-purple-600/25",
+      "bg-gradient-to-br from-indigo-500/15 to-indigo-600/25",
+      "bg-gradient-to-br from-yellow-500/15 to-orange-500/25",
+    ];
+    const icons = ["💪", "⚡", "🧬", "🏋️", "❤️", "🌟"];
+
+    return {
+      slug: c.slug,
+      name: c.name,
+      description: c.description,
+      color: colors[idx % colors.length],
+      icon: icons[idx % icons.length],
+    };
+  });
 
   return (
     <section className="py-20 bg-secondary">
@@ -65,6 +44,15 @@ const Categories = () => {
             <div
               key={index}
               className={`${category.color} rounded-2xl p-8 border border-border/50 hover:shadow-card transition-all duration-300 transform hover:-translate-y-2 cursor-pointer group`}
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate(`/category/${category.slug}`)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  navigate(`/category/${category.slug}`);
+                }
+              }}
             >
               <div className="text-center space-y-4">
                 <div className="text-4xl mb-4">{category.icon}</div>
@@ -74,12 +62,13 @@ const Categories = () => {
                 <p className="text-muted-foreground">
                   {category.description}
                 </p>
-                <p className="text-sm font-medium text-accent">
-                  {category.productCount}
-                </p>
                 <Button 
                   variant="outline" 
                   className="w-full mt-4 border-accent/20 hover:bg-accent hover:text-accent-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/category/${category.slug}`);
+                  }}
                 >
                   Browse {category.name}
                 </Button>
