@@ -131,7 +131,7 @@ export const addOrderItems = asyncHandler(async (req, res) => {
         attachments: [
           {
             filename: "ksn-banner.jpg",
-            path: "frontend\public\ksn-banner.jpg",
+            path: "../frontend/public/ksn-banner.jpg",
             cid: "ksn-banner",
           },
         ],
@@ -177,7 +177,7 @@ export const addOrderItems = asyncHandler(async (req, res) => {
         attachments: [
           {
             filename: "ksn-banner.jpg",
-            path: "frontend\public\ksn-banner.jpg",
+            path: "../frontend/public/ksn-banner.jpg",
             cid: "ksn-banner",
           },
         ],
@@ -356,7 +356,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
           attachments: [
             {
               filename: "ksn-banner.jpg",
-              path: "frontend\public\ksn-banner.jpg",
+              path: "../frontend/public/ksn-banner.jpg",
               cid: "ksn-banner",
             },
           ],
