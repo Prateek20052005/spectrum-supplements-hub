@@ -64,6 +64,7 @@ const Checkout = () => {
   const [processing, setProcessing] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [isUpiPaymentDone, setIsUpiPaymentDone] = useState(false);
   const [shippingAddress, setShippingAddress] = useState({
     street: '',
     city: '',
@@ -262,6 +263,26 @@ const Checkout = () => {
   const handleSubmit = async (e?: SyntheticEvent) => {
     e?.preventDefault();
     if (!order) return;
+
+    // If payment method is UPI and not marked as done, show error
+    if (paymentMethod === 'upi' && !isUpiPaymentDone) {
+      toast({
+        variant: "destructive",
+        title: "Payment Required",
+        description: "Please complete the UPI payment and click 'Mark as Done' to proceed.",
+      });
+      return;
+    }
+
+    // If payment method is UPI and not marked as done, show error
+    if (paymentMethod === 'upi' && !isUpiPaymentDone) {
+      toast({
+        variant: "destructive",
+        title: "Payment Required",
+        description: "Please complete the UPI payment and click 'Mark as Done' to proceed.",
+      });
+      return;
+    }
 
     const headers = getAuthHeaders();
     if (!headers) {
@@ -546,27 +567,85 @@ const Checkout = () => {
                         className={`p-4 border rounded-lg cursor-pointer ${paymentMethod === 'upi' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}
                         onClick={() => setPaymentMethod('upi')}
                       >
-                        <div className="flex items-center space-x-3">
-                          <div className={`p-1 rounded-full ${paymentMethod === 'upi' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                            <Smartphone className="h-4 w-4" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-base font-medium">Pay with UPI</Label>
-                              {paymentMethod === 'upi' && (
-                                <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">Recommended</span>
-                              )}
+                        <div className="space-y-3">
+                          <div className="flex items-center space-x-3">
+                            <div className={`p-1 rounded-full ${paymentMethod === 'upi' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                              <Smartphone className="h-4 w-4" />
                             </div>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Fast and secure UPI payment
-                            </p>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-base font-medium">Pay with UPI</Label>
+                                {paymentMethod === 'upi' && (
+                                  <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">Recommended</span>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                Fast and secure UPI payment
+                              </p>
+                            </div>
+                            <RadioGroupItem
+                              value="upi"
+                              id="upi"
+                              onClick={(e) => e.stopPropagation()}
+                              className="h-5 w-5 text-primary"
+                            />
                           </div>
-                          <RadioGroupItem
-                            value="upi"
-                            id="upi"
-                            onClick={(e) => e.stopPropagation()}
-                            className="h-5 w-5 text-primary"
-                          />
+                          
+                          {paymentMethod === 'upi' && (
+                            <div className="ml-9 space-y-3">
+                              <div className="bg-background p-3 rounded-md border">
+                                <p className="text-sm text-muted-foreground mb-2">Send payment to UPI ID:</p>
+                                <div className="flex items-center justify-between bg-muted/30 p-2 rounded">
+                                  <code className="font-mono text-sm break-all">kapilsherawatfitness@okaxis</code>
+                                  <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="ml-2 shrink-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigator.clipboard.writeText('kapilsherawatfitness@okaxis');
+                                      toast({
+                                        title: "Copied!",
+                                        description: "UPI ID has been copied to clipboard.",
+                                      });
+                                    }}
+                                  >
+                                    Copy
+                                  </Button>
+                                </div>
+                                
+                                <Button
+                                  type="button"
+                                  variant={isUpiPaymentDone ? 'default' : 'outline'}
+                                  className={`w-full mt-3 ${isUpiPaymentDone ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsUpiPaymentDone(true);
+                                    toast({
+                                      title: "Payment Confirmed",
+                                      description: "Thank you for completing the UPI payment!",
+                                    });
+                                  }}
+                                >
+                                  {isUpiPaymentDone ? (
+                                    <>
+                                      <CheckCircle className="w-4 h-4 mr-2" />
+                                      Payment Done
+                                    </>
+                                  ) : (
+                                    'Mark as Done'
+                                  )}
+                                </Button>
+                                
+                                {!isUpiPaymentDone && (
+                                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                                    Please complete the payment and click "Mark as Done" to continue
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -594,57 +673,7 @@ const Checkout = () => {
                       </div>
                     </RadioGroup>
 
-                    {paymentMethod === 'upi' && (
-                      <div className="p-4 border rounded-lg bg-muted/10">
-                        {!showUpiPayment ? (
-                          <div className="space-y-4">
-                            <div className="space-y-2">
-                              <h4 className="font-medium">Complete your UPI Payment</h4>
-                              <p className="text-sm text-muted-foreground">
-                                You will be redirected to your UPI app to complete the payment of {formatINR(order.total)}
-                              </p>
-                            </div>
-                            <Button
-                              type="button"
-                              className="w-full"
-                              onClick={() => {
-                                const amount = Number(order.total).toFixed(2);
-                                const upiUrl = `upi://pay?pa=your-merchant-vpa@upi&pn=Spectrum%20Supplies&am=${amount}&cu=INR&tn=Spectrum%20Supplies%20Order`;
-                                window.location.href = upiUrl;
-                              }}
-                            >
-                              Open UPI App
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="space-y-4">
-                            <p className="text-sm text-muted-foreground">
-                              If your UPI app didn’t open, tap below.
-                            </p>
-                            <Button
-                              type="button"
-                              className="w-full"
-                              onClick={() => {
-                                const amount = Number(order.total).toFixed(2);
-                                const upiUrl = `upi://pay?pa=your-merchant-vpa@upi&pn=Spectrum%20Supplies&am=${amount}&cu=INR&tn=Spectrum%20Supplies%20Order`;
-                                window.location.href = upiUrl;
-                              }}
-                            >
-                              Try Opening UPI Again
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="w-full"
-                              onClick={() => setShowUpiPayment(false)}
-                            >
-                              Back
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
+                    
                     {paymentMethod === 'cod' && (
                       <div className="p-4 border rounded-lg bg-muted/10">
                         <div className="flex items-start space-x-3">
@@ -696,47 +725,49 @@ const Checkout = () => {
                       </div>
                     ))}
 
-                    <div className="border-t pt-4 space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Subtotal</span>
-                        <span>{formatINR(order.subtotal)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Shipping</span>
-                        <span>{formatINR(order.shipping)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Tax</span>
-                        <span>{formatINR(order.tax)}</span>
-                      </div>
-                      <div className="flex justify-between font-bold text-lg pt-2">
-                        <span>Total</span>
-                        <span>{formatINR(order.total)}</span>
-                      </div>
+                  <div className="border-t pt-4 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span>{formatINR(order.subtotal)}</span>
                     </div>
-
-                    <Button
-                      type="button"
-                      onClick={handleSubmit}
-                      disabled={processing}
-                      className="w-full"
-                    >
-                      {processing ? (
-                        <span className="flex items-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Processing...
-                        </span>
-                      ) : (
-                        'Place Order'
-                      )}
-                    </Button>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Shipping</span>
+                      <span>{formatINR(order.shipping)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Tax</span>
+                      <span>{formatINR(order.tax)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-lg pt-2">
+                      <span>Total</span>
+                      <span>{formatINR(order.total)}</span>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full mt-6"
+                    size="lg"
+                    disabled={processing || (paymentMethod === 'upi' && !isUpiPaymentDone)}
+                  >
+                    {processing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Placing Order...
+                      </>
+                    ) : paymentMethod === 'upi' && !isUpiPaymentDone ? (
+                      'Complete UPI Payment First'
+                    ) : (
+                      'Place Order'
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
-      </main>
+      </div>
+    </main>
       <Footer />
     </div>
   );
