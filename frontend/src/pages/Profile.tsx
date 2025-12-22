@@ -91,7 +91,7 @@ const Profile = () => {
     }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/orders`, { headers });
+      const res = await fetch(`${API_BASE_URL}/api/orders/myorders`, { headers });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(data?.message || "Failed to load orders");

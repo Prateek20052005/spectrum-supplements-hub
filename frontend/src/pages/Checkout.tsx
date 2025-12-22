@@ -466,7 +466,8 @@ const Checkout = () => {
         <div className="container mx-auto px-4">
           <h1 className="text-3xl font-bold mb-8">Checkout</h1>
           
-          <div className="grid md:grid-cols-3 gap-8">
+          <form onSubmit={handleSubmit}>
+            <div className="grid md:grid-cols-3 gap-8">
             {/* Checkout Form */}
             <div className="md:col-span-2 space-y-6">
               <Card>
@@ -766,8 +767,9 @@ const Checkout = () => {
             </Card>
           </div>
         </div>
-      </div>
-    </main>
+          </form>
+        </div>
+      </main>
       <Footer />
     </div>
   );
