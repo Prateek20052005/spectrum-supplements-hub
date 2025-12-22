@@ -40,9 +40,8 @@ type UserProfile = {
 type CheckoutOrder = {
   items: CartItem[];
   total: number;
-  subtotal: number;
-  shipping: number;
-  tax: number;
+  originalPrice: number;
+  discount: number;
   shippingAddress?: {
     street: string;
     city: string;
@@ -227,11 +226,15 @@ const Checkout = () => {
         }
 
         // Calculate order summary
-        const subtotal = cart.items.reduce((sum: number, item: any) => 
+        // Calculate original price (what admin set as original price)
+        const originalPrice = cart.items.reduce((sum: number, item: any) => 
+          sum + (((item.productId as any).originalPrice || item.productId.price) * item.quantity), 0);
+        // Calculate discount price (what admin set as discount price)
+        const discountPrice = cart.items.reduce((sum: number, item: any) => 
           sum + (item.productId.price * item.quantity), 0);
-        const shipping = subtotal > 0 ? 500 : 0;
-        const tax = subtotal * 0.18;
-        const total = subtotal + shipping + tax;
+        // Calculate discount amount
+        const discount = originalPrice - discountPrice;
+        const total = discountPrice;
 
         setOrder({
           items: cart.items.map((item: any) => ({
@@ -242,9 +245,8 @@ const Checkout = () => {
             image: item.productId.images?.[0],
             flavour: item.flavour || null,
           })),
-          subtotal,
-          shipping,
-          tax,
+          originalPrice,
+          discount,
           total,
         });
       } catch (error: any) {
@@ -729,16 +731,14 @@ const Checkout = () => {
                   <div className="border-t pt-4 space-y-2">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Subtotal</span>
-                      <span>{formatINR(order.subtotal)}</span>
+                      <span>{formatINR(order.originalPrice)}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Shipping</span>
-                      <span>{formatINR(order.shipping)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Tax</span>
-                      <span>{formatINR(order.tax)}</span>
-                    </div>
+                    {order.discount > 0 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Discount</span>
+                        <span>-{formatINR(order.discount)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between font-bold text-lg pt-2">
                       <span>Total</span>
                       <span>{formatINR(order.total)}</span>

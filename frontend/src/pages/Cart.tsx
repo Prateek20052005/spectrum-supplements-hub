@@ -164,13 +164,19 @@ const Cart = () => {
   };
 
   const cartItems = cart?.items || [];
-  const subtotal = cartItems.reduce(
+  // Calculate original price (what admin set as original price)
+  const originalPrice = cartItems.reduce(
+    (acc, item) => acc + ((item.productId as any)?.originalPrice || item.productId?.price || 0) * item.quantity,
+    0
+  );
+  // Calculate discount price (what admin set as discount price)
+  const discountPrice = cartItems.reduce(
     (acc, item) => acc + (item.productId?.price || 0) * item.quantity,
     0
   );
-  const shipping = subtotal > 0 ? 500 : 0; // Flat ₹500 shipping
-  const tax = subtotal * 0.18; // 18% GST
-  const total = subtotal + shipping + tax;
+  // Calculate discount amount
+  const discount = originalPrice - discountPrice;
+  const total = discountPrice;
 
   if (loading) {
     return (
@@ -290,16 +296,14 @@ const Cart = () => {
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span>{formatINR(subtotal)}</span>
+                  <span>{formatINR(originalPrice)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Shipping</span>
-                  <span>{formatINR(shipping)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span>{formatINR(tax)}</span>
-                </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Discount</span>
+                    <span>-{formatINR(discount)}</span>
+                  </div>
+                )}
                 <div className="border-t pt-3 flex justify-between font-bold text-lg">
                   <span>Total</span>
                   <span>{formatINR(total)}</span>
