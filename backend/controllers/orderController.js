@@ -2,6 +2,7 @@
 import asyncHandler from "express-async-handler";
 import Order from "../models/order.js";
 import Product from "../models/product.js";
+import User from "../models/user.js";
 import sendEmail from "../utils/sendEmail.js";
 
 const getFrontendBaseUrl = () => {
@@ -138,6 +139,52 @@ export const addOrderItems = asyncHandler(async (req, res) => {
     }
   } catch (e) {
     console.warn("Failed to send order placed email:", e?.message || e);
+  }
+
+  // Notify admins of the new order
+  try {
+    const admins = await User.find({ role: "admin" }).select("email");
+    const adminEmails = admins.map(a => a.email).filter(Boolean);
+    if (adminEmails.length) {
+      const orderId = createdOrder?._id?.toString();
+      const orderUrl = orderId ? `${getFrontendBaseUrl()}/order/${orderId}` : getFrontendBaseUrl();
+      const itemsLine = (createdOrder?.items || [])
+        .map((it) => `${it?.name || "Item"} x${it?.quantity || 1}`)
+        .join(", ");
+
+      await sendEmail({
+        to: adminEmails, // nodemailer supports array of recipients
+        subject: `New Order Placed${orderId ? ` (#${orderId})` : ""}`,
+        text: `A new order has been placed by ${req.user?.fullName || "A customer"} (${req.user?.email}).${orderId ? `\n\nOrder ID: ${orderId}` : ""}\nOrder Status: ${createdOrder?.orderStatus || "placed"}\nOrder Total: ₹${Number(createdOrder?.totalAmount || 0).toFixed(2)}\nItems: ${itemsLine || "-"}\n\nView order: ${orderUrl}\n\nRegards,\nSuppByKSN`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#111827;">
+  <div style="margin-bottom:16px;">
+    <img src="cid:ksn-banner" alt="SuppByKSN" style="width:100%;height:auto;border-radius:8px;display:block;" />
+  </div>
+  <h2 style="margin:0 0 12px;">New Order Placed</h2>
+  <p style="margin:0 0 12px;">A new order has been placed by <strong>${req.user?.fullName || "A customer"}</strong> (${req.user?.email}).</p>
+  <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:16px 0;">
+    ${orderId ? `<p style="margin:0 0 6px;"><strong>Order ID:</strong> ${orderId}</p>` : ""}
+    <p style="margin:0 0 6px;"><strong>Order Status:</strong> ${(createdOrder?.orderStatus || "placed")}</p>
+    <p style="margin:0;"><strong>Order Total:</strong> ₹${Number(createdOrder?.totalAmount || 0).toFixed(2)}</p>
+  </div>
+  <h3 style="margin:18px 0 8px;">Order Details</h3>
+  <p style="margin:0 0 12px;">${itemsLine || "-"}</p>
+  <div style="margin:18px 0;">
+    <a href="${orderUrl}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:6px;">View Order</a>
+  </div>
+  <p style="margin:0;">Regards,<br/>SuppByKSN</p>
+ </div>`,
+        attachments: [
+          {
+            filename: "ksn-banner.jpg",
+            path: "C:/Users/sidsh/OneDrive/Desktop/spectrum-supplements-hub/frontend/public/ksn-banner.jpg",
+            cid: "ksn-banner",
+          },
+        ],
+      });
+    }
+  } catch (e) {
+    console.warn("Failed to send admin new order email:", e?.message || e);
   }
 
   // decrement stock and optionally increment sold count
