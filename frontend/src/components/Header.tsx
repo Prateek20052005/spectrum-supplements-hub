@@ -188,7 +188,7 @@ const Header = () => {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center space-x-2">
+          <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
             <img
               src="/favicon.png"
               alt="KSN"
@@ -200,7 +200,7 @@ const Header = () => {
             <div className="text-primary-foreground font-bold text-xl">
               KSN
             </div>
-          </div>
+          </Link>
 
           {/* Navigation - Desktop */}
           <nav className="hidden md:flex items-center space-x-8">
@@ -374,9 +374,36 @@ const Header = () => {
                 )}
               </Button>
             </Link>
-            <Button variant="ghost" size="sm" className="md:hidden text-primary-foreground">
-              <Menu className="w-5 h-5" />
-            </Button>
+            {/* Mobile Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="md:hidden text-primary-foreground">
+                  <Menu className="w-5 h-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-48" align="end" forceMount>
+                <DropdownMenuItem asChild>
+                  <Link to="/products" className="w-full cursor-pointer">
+                    Products
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/categories" className="w-full cursor-pointer">
+                    Categories
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/about" className="w-full cursor-pointer">
+                    About Us
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/contact" className="w-full cursor-pointer">
+                    Contact
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
