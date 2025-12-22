@@ -275,6 +275,91 @@ export const cancelOrder = asyncHandler(async (req, res) => {
     });
   }
 
+  // Send cancellation email to the user and notify admins
+  try {
+    const orderWithUser = await Order.findById(updated._id).populate("userId", "fullName email");
+    const userEmail = orderWithUser?.userId?.email;
+    const orderId = updated?._id?.toString();
+    const orderUrl = orderId ? `${getFrontendBaseUrl()}/order/${orderId}` : getFrontendBaseUrl();
+    const itemsLine = (orderWithUser?.items || [])
+      .map((it) => `${it?.name || "Item"} x${it?.quantity || 1}`)
+      .join(", ");
+
+    // Send to user
+    if (userEmail) {
+      await sendEmail({
+        to: userEmail,
+        subject: `Order Cancelled${orderId ? ` (#${orderId})` : ""}`,
+        text: `Dear${orderWithUser?.userId?.fullName ? ` ${orderWithUser.userId.fullName}` : " Customer"},\n\nYour order has been successfully cancelled.${orderId ? `\n\nOrder ID: ${orderId}` : ""}\nOrder Status: ${updated.orderStatus}\nOrder Total: ₹${Number(updated?.totalAmount || 0).toFixed(2)}\nItems: ${itemsLine || "-"}\n\nIf you did not request this cancellation, please contact our support team immediately.\n\nView your order: ${orderUrl}\n\nRegards,\nSuppByKSN`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#111827;">
+  <div style="margin-bottom:16px;">
+    <img src="cid:ksn-banner" alt="SuppByKSN" style="width:100%;height:auto;border-radius:8px;display:block;" />
+  </div>
+  <h2 style="margin:0 0 12px;">Order Cancelled</h2>
+  <p style="margin:0 0 12px;">Dear${orderWithUser?.userId?.fullName ? ` ${orderWithUser.userId.fullName}` : " Customer"},</p>
+  <p style="margin:0 0 12px;">Your order has been successfully cancelled.</p>
+  <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:16px 0;">
+    ${orderId ? `<p style="margin:0 0 6px;"><strong>Order ID:</strong> ${orderId}</p>` : ""}
+    <p style="margin:0 0 6px;"><strong>Order Status:</strong> ${updated.orderStatus}</p>
+    <p style="margin:0;"><strong>Order Total:</strong> ₹${Number(updated?.totalAmount || 0).toFixed(2)}</p>
+  </div>
+  <h3 style="margin:18px 0 8px;">Cancelled Items</h3>
+  <p style="margin:0 0 12px;">${itemsLine || "-"}</p>
+  <p style="margin:0 0 12px;">If you did not request this cancellation, please contact our support team immediately.</p>
+  <div style="margin:18px 0;">
+    <a href="${orderUrl}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:6px;">View Order</a>
+  </div>
+  <p style="margin:0;">Regards,<br/>SuppByKSN</p>
+ </div>`,
+        attachments: [
+          {
+            filename: "ksn-banner.jpg",
+            path: "../frontend/public/ksn-banner.jpg",
+            cid: "ksn-banner",
+          },
+        ],
+      });
+    }
+
+    // Notify admins
+    const admins = await User.find({ role: "admin" }).select("email");
+    const adminEmails = admins.map(a => a.email).filter(Boolean);
+    if (adminEmails.length) {
+      await sendEmail({
+        to: adminEmails,
+        subject: `Order Cancelled${orderId ? ` (#${orderId})` : ""}`,
+        text: `An order has been cancelled by ${orderWithUser?.userId?.fullName || "A customer"} (${orderWithUser?.userId?.email}).${orderId ? `\n\nOrder ID: ${orderId}` : ""}\nOrder Status: ${updated.orderStatus}\nOrder Total: ₹${Number(updated?.totalAmount || 0).toFixed(2)}\nItems: ${itemsLine || "-"}\n\nView order: ${orderUrl}\n\nRegards,\nSuppByKSN`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#111827;">
+  <div style="margin-bottom:16px;">
+    <img src="cid:ksn-banner" alt="SuppByKSN" style="width:100%;height:auto;border-radius:8px;display:block;" />
+  </div>
+  <h2 style="margin:0 0 12px;">Order Cancelled</h2>
+  <p style="margin:0 0 12px;">An order has been cancelled by <strong>${orderWithUser?.userId?.fullName || "A customer"}</strong> (${orderWithUser?.userId?.email}).</p>
+  <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:16px 0;">
+    ${orderId ? `<p style="margin:0 0 6px;"><strong>Order ID:</strong> ${orderId}</p>` : ""}
+    <p style="margin:0 0 6px;"><strong>Order Status:</strong> ${updated.orderStatus}</p>
+    <p style="margin:0;"><strong>Order Total:</strong> ₹${Number(updated?.totalAmount || 0).toFixed(2)}</p>
+  </div>
+  <h3 style="margin:18px 0 8px;">Cancelled Items</h3>
+  <p style="margin:0 0 12px;">${itemsLine || "-"}</p>
+  <div style="margin:18px 0;">
+    <a href="${orderUrl}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:6px;">View Order</a>
+  </div>
+  <p style="margin:0;">Regards,<br/>SuppByKSN</p>
+ </div>`,
+        attachments: [
+          {
+            filename: "ksn-banner.jpg",
+            path: "../frontend/public/ksn-banner.jpg",
+            cid: "ksn-banner",
+          },
+        ],
+      });
+    }
+  } catch (e) {
+    console.warn("Failed to send order cancellation emails:", e?.message || e);
+  }
+
   res.json(updated);
 });
 
