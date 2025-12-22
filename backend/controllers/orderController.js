@@ -2,6 +2,15 @@
 import asyncHandler from "express-async-handler";
 import Order from "../models/order.js";
 import Product from "../models/product.js";
+import sendEmail from "../utils/sendEmail.js";
+
+const getFrontendBaseUrl = () => {
+  return (
+    process.env.FRONTEND_BASE_URL ||
+    process.env.CLIENT_URL ||
+    "http://localhost:5173"
+  );
+};
 
 /**
  * @desc   Create a new order
@@ -59,6 +68,77 @@ export const addOrderItems = asyncHandler(async (req, res) => {
   });
 
   const createdOrder = await order.save();
+
+  try {
+    const userEmail = req.user?.email;
+    if (userEmail) {
+      const orderId = createdOrder?._id?.toString();
+      const orderUrl = orderId ? `${getFrontendBaseUrl()}/order/${orderId}` : getFrontendBaseUrl();
+      const itemsLine = (createdOrder?.items || [])
+        .map((it) => `${it?.name || "Item"} x${it?.quantity || 1}`)
+        .join(", ");
+
+      const itemsRows = (createdOrder?.items || [])
+        .map((it) => {
+          const qty = Number(it?.quantity || 1);
+          const price = typeof it?.price === "number" ? it.price : 0;
+          const lineTotal = price * qty;
+          return `<tr>
+  <td style="padding:8px;border:1px solid #e5e7eb;">${it?.name || "Product"}</td>
+  <td style="padding:8px;border:1px solid #e5e7eb;">${qty}</td>
+  <td style="padding:8px;border:1px solid #e5e7eb;">₹${price.toFixed(2)}</td>
+  <td style="padding:8px;border:1px solid #e5e7eb;">₹${lineTotal.toFixed(2)}</td>
+ </tr>`;
+        })
+        .join("");
+
+      await sendEmail({
+        to: userEmail,
+        subject: `Order Confirmation${orderId ? ` (#${orderId})` : ""}`,
+        text: `Dear${req.user?.fullName ? ` ${req.user.fullName}` : " Customer"},\n\nThank you for your purchase. Your order has been successfully placed.${orderId ? `\n\nOrder ID: ${orderId}` : ""}\nOrder Status: ${createdOrder?.orderStatus || "placed"}\nOrder Total: ₹${Number(createdOrder?.totalAmount || 0).toFixed(2)}\nItems: ${itemsLine || "-"}\n\nTrack your order: ${orderUrl}\n\nRegards,\nSuppByKSN`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#111827;">
+  <div style="margin-bottom:16px;">
+    <img src="cid:ksn-banner" alt="SuppByKSN" style="width:100%;height:auto;border-radius:8px;display:block;" />
+  </div>
+  <h2 style="margin:0 0 12px;">Order Confirmation</h2>
+  <p style="margin:0 0 12px;">Dear${req.user?.fullName ? ` ${req.user.fullName}` : " Customer"},</p>
+  <p style="margin:0 0 12px;">Thank you for your purchase. Your order has been successfully placed.</p>
+  <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:16px 0;">
+    ${orderId ? `<p style="margin:0 0 6px;"><strong>Order ID:</strong> ${orderId}</p>` : ""}
+    <p style="margin:0 0 6px;"><strong>Order Status:</strong> ${(createdOrder?.orderStatus || "placed")}</p>
+    <p style="margin:0;"><strong>Order Total:</strong> ₹${Number(createdOrder?.totalAmount || 0).toFixed(2)}</p>
+  </div>
+  <h3 style="margin:18px 0 8px;">Order Details</h3>
+  <table style="width:100%;border-collapse:collapse;font-size:14px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px;border:1px solid #e5e7eb;background:#f3f4f6;">Item</th>
+        <th style="text-align:left;padding:8px;border:1px solid #e5e7eb;background:#f3f4f6;">Qty</th>
+        <th style="text-align:left;padding:8px;border:1px solid #e5e7eb;background:#f3f4f6;">Price</th>
+        <th style="text-align:left;padding:8px;border:1px solid #e5e7eb;background:#f3f4f6;">Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itemsRows || ""}
+    </tbody>
+  </table>
+  <div style="margin:18px 0;">
+    <a href="${orderUrl}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:6px;">View Order</a>
+  </div>
+  <p style="margin:0;">Regards,<br/>SuppByKSN</p>
+ </div>`,
+        attachments: [
+          {
+            filename: "ksn-banner.jpg",
+            path: "C:/Users/sidsh/OneDrive/Desktop/spectrum-supplements-hub/frontend/public/ksn-banner.jpg",
+            cid: "ksn-banner",
+          },
+        ],
+      });
+    }
+  } catch (e) {
+    console.warn("Failed to send order placed email:", e?.message || e);
+  }
 
   // decrement stock and optionally increment sold count
   for (const it of normalizedItems) {
@@ -161,7 +241,84 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.id);
   if (!order) return res.status(404).json({ message: "Order not found" });
 
+  const previousStatus = order.orderStatus;
   order.orderStatus = req.body.orderStatus || order.orderStatus;
   const updated = await order.save();
+
+  if (previousStatus !== updated.orderStatus) {
+    try {
+      const orderWithUser = await Order.findById(updated._id).populate("userId", "fullName email");
+      const userEmail = orderWithUser?.userId?.email;
+      if (userEmail) {
+        const orderId = updated?._id?.toString();
+        const orderUrl = orderId ? `${getFrontendBaseUrl()}/order/${orderId}` : getFrontendBaseUrl();
+        const itemsLine = (orderWithUser?.items || [])
+          .map((it) => `${it?.name || "Item"} x${it?.quantity || 1}`)
+          .join(", ");
+
+        const itemsRows = (orderWithUser?.items || [])
+          .map((it) => {
+            const qty = Number(it?.quantity || 1);
+            const price = typeof it?.price === "number" ? it.price : 0;
+            const lineTotal = price * qty;
+            return `<tr>
+  <td style="padding:8px;border:1px solid #e5e7eb;">${it?.name || "Product"}</td>
+  <td style="padding:8px;border:1px solid #e5e7eb;">${qty}</td>
+  <td style="padding:8px;border:1px solid #e5e7eb;">₹${price.toFixed(2)}</td>
+  <td style="padding:8px;border:1px solid #e5e7eb;">₹${lineTotal.toFixed(2)}</td>
+ </tr>`;
+          })
+          .join("");
+
+        await sendEmail({
+          to: userEmail,
+          subject: `Order Status Update${orderId ? ` (#${orderId})` : ""}`,
+          text: `Dear${orderWithUser?.userId?.fullName ? ` ${orderWithUser.userId.fullName}` : " Customer"},\n\nWe would like to inform you that the status of your order has been updated.${orderId ? `\n\nOrder ID: ${orderId}` : ""}\nPrevious Status: ${previousStatus}\nNew Status: ${updated.orderStatus}\nOrder Total: ₹${Number(updated?.totalAmount || 0).toFixed(2)}\nItems: ${itemsLine || "-"}\n\nView your order: ${orderUrl}\n\nRegards,\nSuppByKSN`,
+          html: `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#111827;">
+  <div style="margin-bottom:16px;">
+    <img src="cid:ksn-banner" alt="SuppByKSN" style="width:100%;height:auto;border-radius:8px;display:block;" />
+  </div>
+  <h2 style="margin:0 0 12px;">Order Status Update</h2>
+  <p style="margin:0 0 12px;">Dear${orderWithUser?.userId?.fullName ? ` ${orderWithUser.userId.fullName}` : " Customer"},</p>
+  <p style="margin:0 0 12px;">We would like to inform you that the status of your order has been updated.</p>
+  <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:16px 0;">
+    ${orderId ? `<p style="margin:0 0 6px;"><strong>Order ID:</strong> ${orderId}</p>` : ""}
+    <p style="margin:0 0 6px;"><strong>Previous Status:</strong> ${previousStatus}</p>
+    <p style="margin:0 0 6px;"><strong>New Status:</strong> ${updated.orderStatus}</p>
+    <p style="margin:0;"><strong>Order Total:</strong> ₹${Number(updated?.totalAmount || 0).toFixed(2)}</p>
+  </div>
+  <h3 style="margin:18px 0 8px;">Order Details</h3>
+  <table style="width:100%;border-collapse:collapse;font-size:14px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px;border:1px solid #e5e7eb;background:#f3f4f6;">Item</th>
+        <th style="text-align:left;padding:8px;border:1px solid #e5e7eb;background:#f3f4f6;">Qty</th>
+        <th style="text-align:left;padding:8px;border:1px solid #e5e7eb;background:#f3f4f6;">Price</th>
+        <th style="text-align:left;padding:8px;border:1px solid #e5e7eb;background:#f3f4f6;">Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itemsRows || ""}
+    </tbody>
+  </table>
+  <div style="margin:18px 0;">
+    <a href="${orderUrl}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:6px;">View Order</a>
+  </div>
+  <p style="margin:0;">Regards,<br/>SuppByKSN</p>
+ </div>`,
+          attachments: [
+            {
+              filename: "ksn-banner.jpg",
+              path: "C:/Users/sidsh/OneDrive/Desktop/spectrum-supplements-hub/frontend/public/ksn-banner.jpg",
+              cid: "ksn-banner",
+            },
+          ],
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to send order status update email:", e?.message || e);
+    }
+  }
+
   res.json(updated);
 });

@@ -102,6 +102,45 @@ export const authUser = asyncHandler(async (req, res) => {
         .json({ message: "Email not verified", code: "EMAIL_NOT_VERIFIED" });
     }
 
+    // Send login notification email (non-blocking)
+    try {
+      const loginTime = new Date().toISOString();
+      const ipAddress =
+        (req.headers["x-forwarded-for"] || "")?.toString().split(",")[0].trim() ||
+        req.ip ||
+        "Unknown";
+
+      await sendEmail({
+        to: user.email,
+        subject: "Login Alert: New sign-in to your account",
+        text: `Dear ${user.fullName || "Customer"},\n\nWe noticed a new sign-in to your SuppByKSN account using this email address (${user.email}).\n\nTime (UTC): ${loginTime}\nIP address: ${ipAddress}\n\nIf this was you, no further action is required.\nIf you did not sign in, please secure your account immediately by changing your password.\n\nRegards,\nSuppByKSN`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#111827;">
+  <div style="margin-bottom:16px;">
+    <img src="cid:ksn-banner" alt="SuppByKSN" style="width:100%;height:auto;border-radius:8px;display:block;" />
+  </div>
+  <h2 style="margin:0 0 12px;">Login Alert</h2>
+  <p style="margin:0 0 12px;">Dear ${user.fullName || "Customer"},</p>
+  <p style="margin:0 0 12px;">We noticed a new sign-in to your SuppByKSN account using this email address (<strong>${user.email}</strong>).</p>
+  <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:16px 0;">
+    <p style="margin:0 0 6px;"><strong>Time (UTC):</strong> ${loginTime}</p>
+    <p style="margin:0;"><strong>IP address:</strong> ${ipAddress}</p>
+  </div>
+  <p style="margin:0 0 12px;">If this was you, no further action is required.</p>
+  <p style="margin:0 0 12px;"><strong>If you did not sign in</strong>, please secure your account immediately by changing your password.</p>
+  <p style="margin:0;">Regards,<br/>SuppByKSN</p>
+ </div>`,
+        attachments: [
+          {
+            filename: "ksn-banner.jpg",
+            path: "C:/Users/sidsh/OneDrive/Desktop/spectrum-supplements-hub/frontend/public/ksn-banner.jpg",
+            cid: "ksn-banner",
+          },
+        ],
+      });
+    } catch (e) {
+      console.warn("Failed to send login notification email:", e?.message || e);
+    }
+
     res.json({
       _id: user._id,
       fullName: user.fullName,

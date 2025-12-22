@@ -1,4 +1,4 @@
-const sendEmail = async ({ to, subject, text, html }) => {
+const sendEmail = async ({ to, subject, text, html, attachments }) => {
   let nodemailer;
   try {
     const imported = await import("nodemailer");
@@ -7,7 +7,7 @@ const sendEmail = async ({ to, subject, text, html }) => {
     console.warn(
       "Email delivery is not configured (missing optional dependency 'nodemailer')."
     );
-    console.log({ to, subject, text, html });
+    console.log({ to, subject, text, html, attachments });
     return;
   }
 
@@ -24,7 +24,7 @@ const sendEmail = async ({ to, subject, text, html }) => {
     console.warn(
       "Email delivery is not configured (missing SMTP env vars). Logging email payload instead."
     );
-    console.log({ to, subject, text, html });
+    console.log({ to, subject, text, html, attachments });
     return;
   }
 
@@ -56,6 +56,7 @@ const sendEmail = async ({ to, subject, text, html }) => {
       subject,
       text,
       html,
+      attachments: Array.isArray(attachments) ? attachments : undefined,
     });
   } catch (e) {
     console.error("SMTP sendMail failed:", {
