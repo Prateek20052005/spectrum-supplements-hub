@@ -1,4 +1,4 @@
-import { Facebook, Instagram, Twitter, Mail, Phone, MapPin } from "lucide-react";
+import { Facebook, Instagram, Mail, Phone, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
@@ -22,15 +22,22 @@ const Footer = () => {
               Your trusted partner in fitness nutrition. Premium supplements for serious athletes and fitness enthusiasts.
             </p>
             <div className="flex space-x-3">
-              <Button variant="ghost" size="sm" className="text-primary-foreground/80 hover:text-accent hover:bg-primary-foreground/10 p-2">
+              <a 
+                href="https://www.facebook.com/share/16xNwU2Zfs/?mibextid=wwXIfr" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary-foreground/80 hover:text-accent transition-colors p-2"
+              >
                 <Facebook className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="sm" className="text-primary-foreground/80 hover:text-accent hover:bg-primary-foreground/10 p-2">
+              </a>
+              <a 
+                href="https://www.instagram.com/supp_by_ksn?igsh=MXgzdmRtNXFpaDhjbA==" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary-foreground/80 hover:text-accent transition-colors p-2"
+              >
                 <Instagram className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="sm" className="text-primary-foreground/80 hover:text-accent hover:bg-primary-foreground/10 p-2">
-                <Twitter className="w-4 h-4" />
-              </Button>
+              </a>
             </div>
           </div>
 

@@ -79,10 +79,16 @@ export const addToCart = asyncHandler(async (req, res) => {
  */
 export const removeFromCart = asyncHandler(async (req, res) => {
   const { productId } = req.params;
+  const hasFlavourParam = Object.prototype.hasOwnProperty.call(req.query, "flavour");
+  const flavour = req.query.flavour;
   let cart = await Cart.findOne({ userId: req.user._id });
   if (!cart) return res.status(404).json({ message: "Cart not found" });
 
-  cart.items = cart.items.filter((i) => i.productId.toString() !== productId);
+  cart.items = cart.items.filter((i) => {
+    if (i.productId.toString() !== productId) return true;
+    if (!hasFlavourParam) return false;
+    return String(i.flavour || "") !== String(flavour || "");
+  });
   const saved = await cart.save();
   res.json(saved);
 });

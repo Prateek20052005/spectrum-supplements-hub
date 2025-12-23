@@ -97,7 +97,7 @@ const Cart = () => {
 
   const updateQuantity = async (productId: string, newQuantity: number, flavour?: string | null) => {
     if (newQuantity < 1) {
-      handleRemoveItem(productId);
+      await handleRemoveItem(productId, flavour);
       return;
     }
 
@@ -130,7 +130,7 @@ const Cart = () => {
     }
   };
 
-  const handleRemoveItem = async (productId: string) => {
+  const handleRemoveItem = async (productId: string, flavour?: string | null) => {
     const headers = getAuthHeaders();
     if (!headers) {
       navigate('/login', { state: { from: '/cart' } });
@@ -139,7 +139,8 @@ const Cart = () => {
 
     try {
       setUpdating(productId);
-      const res = await fetch(`${API_BASE_URL}/api/cart/${productId}`, {
+      const flavourQuery = flavour ? `?flavour=${encodeURIComponent(flavour)}` : "";
+      const res = await fetch(`${API_BASE_URL}/api/cart/${productId}${flavourQuery}`, {
         method: 'DELETE',
         headers,
       });
@@ -274,7 +275,7 @@ const Cart = () => {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => handleRemoveItem(product?._id || "")}
+                        onClick={() => handleRemoveItem(product?._id || "", item.flavour)}
                         disabled={isUpdating}
                       >
                         <Trash2 className="w-4 h-4 text-destructive" />

@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { CartProvider } from "@/contexts/CartContext";
 import Index from "@/pages/Index";
 import Products from "@/pages/Products";
+import BestSellers from "@/pages/BestSellers";
 import CategoriesPage from "@/pages/CategoriesPage";
 import ProductDetail from "@/pages/ProductDetail";
 import CategoryView from "@/pages/CategoryView";
@@ -33,6 +34,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/products" element={<Products />} />
+            <Route path="/best-sellers" element={<BestSellers />} />
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/product/:id" element={<ProductDetail />} />
             <Route path="/category/:id" element={<CategoryView />} />

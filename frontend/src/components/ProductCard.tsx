@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Star, Heart, ShoppingCart } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { formatINR } from "@/utils/currency";
+import { useCart } from "@/contexts/CartContext";
 
 interface ProductCardProps {
   id: number | string;
@@ -35,6 +36,9 @@ const ProductCard = ({
   const { toast } = useToast();
   const navigate = useNavigate();
   const [adding, setAdding] = useState(false);
+  const [defaultFlavour, setDefaultFlavour] = useState<string | null>(null);
+  const [loadingFlavour, setLoadingFlavour] = useState(false);
+  const { getItemQuantity, setItemQuantity, removeItem, refreshCart } = useCart();
 
   const hasOriginalPrice =
     originalPrice !== undefined && originalPrice !== null && `${originalPrice}`.length > 0;
@@ -48,12 +52,38 @@ const ProductCard = ({
   })();
   
   // Prioritize _id (MongoDB ObjectId) over id (numeric)
-  const productId = _id || (id && typeof id === 'string' && id.length > 10 ? id : null);
+  const productId = _id || id;
 
   const handleOpenProduct = () => {
-    if (!productId) return;
+    if (!productId) {
+      console.error('No valid product ID found:', { _id, id, productId });
+      return;
+    }
     navigate(`/product/${productId}`);
   };
+
+  const ensureDefaultFlavour = async () => {
+    if (!productId) return null;
+    if (defaultFlavour !== null) return defaultFlavour;
+    try {
+      setLoadingFlavour(true);
+      const res = await fetch(`${API_BASE_URL}/api/products/${productId}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      const first = Array.isArray(data?.flavours) && data.flavours.length > 0 ? data.flavours[0] : null;
+      setDefaultFlavour(first);
+      return first;
+    } finally {
+      setLoadingFlavour(false);
+    }
+  };
+
+  const flavourKey = useMemo(() => defaultFlavour, [defaultFlavour]);
+  const qtyInCart = productId ? getItemQuantity(String(productId), flavourKey) : 0;
+
+  useEffect(() => {
+    refreshCart().catch(() => undefined);
+  }, [refreshCart]);
 
   const handleAddToCart = async () => {
     try {
@@ -90,29 +120,59 @@ const ProductCard = ({
       }
 
       setAdding(true);
-      const res = await fetch(`${API_BASE_URL}/api/cart`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ productId, quantity: 1 }),
-      });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.message || "Failed to add to cart");
-      }
+      const firstFlavour = await ensureDefaultFlavour();
+      await setItemQuantity(String(productId), qtyInCart + 1, firstFlavour);
 
+      const flavourText = firstFlavour ? ` (${firstFlavour})` : "";
       toast({
         title: "Added to cart",
-        description: `${name} has been added to your cart.`,
+        description: `${name}${flavourText} has been added to your cart.`,
       });
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error adding to cart",
         description: error.message || "Could not add item to cart.",
+      });
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleIncrement = async () => {
+    if (!productId) return;
+    try {
+      setAdding(true);
+      const firstFlavour = await ensureDefaultFlavour();
+      await setItemQuantity(String(productId), qtyInCart + 1, firstFlavour);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Could not update quantity.",
+      });
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleDecrement = async () => {
+    if (!productId) return;
+    try {
+      setAdding(true);
+      const firstFlavour = await ensureDefaultFlavour();
+      const next = qtyInCart - 1;
+      if (next <= 0) {
+        await removeItem(String(productId), firstFlavour);
+      } else {
+        await setItemQuantity(String(productId), next, firstFlavour);
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Could not update quantity.",
       });
     } finally {
       setAdding(false);
@@ -199,19 +259,49 @@ const ProductCard = ({
           </div>
         </div>
 
-        {/* Add to Cart Button */}
-        <Button 
-          className="w-full bg-gradient-cta hover:shadow-lg transform hover:scale-105 transition-all"
-          size="lg"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleAddToCart();
-          }}
-          disabled={adding}
-        >
-          <ShoppingCart className="w-4 h-4 mr-2" />
-          {adding ? "Adding..." : "Add to Cart"}
-        </Button>
+        {/* Add to Cart / Quantity Stepper */}
+        {qtyInCart > 0 ? (
+          <div className="w-full flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 py-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 w-10 px-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDecrement();
+              }}
+              disabled={adding || loadingFlavour}
+            >
+              -
+            </Button>
+            <div className="flex-1 text-center font-semibold">{qtyInCart}</div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 w-10 px-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleIncrement();
+              }}
+              disabled={adding || loadingFlavour}
+            >
+              +
+            </Button>
+          </div>
+        ) : (
+          <Button
+            className="w-full bg-gradient-cta hover:shadow-lg transform hover:scale-105 transition-all"
+            size="lg"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddToCart();
+            }}
+            disabled={adding || loadingFlavour}
+          >
+            <ShoppingCart className="w-4 h-4 mr-2" />
+            {adding ? "Adding..." : "Add to Cart"}
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -178,11 +178,16 @@ const Header = () => {
   return (
     <header className="bg-gradient-hero shadow-hero sticky top-0 z-50">
       {/* Top Banner */}
-      <div className="bg-accent text-accent-foreground py-4 px-4">
+      <div className="bg-accent text-accent-foreground py-2 px-4">
         <div className="container mx-auto text-center">
-          <span className="text-sm font-medium whitespace-nowrap">
-            FREE protein shaker with orders over ₹4,000!
-          </span>
+          <a 
+            href="https://www.instagram.com/supp_by_ksn?igsh=MXgzdmRtNXFpaDhjbA==" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-sm font-medium hover:text-accent-foreground/80 transition-colors"
+          >
+            Follow our Instagram Page
+          </a>
         </div>
       </div>
 
