@@ -115,7 +115,7 @@ const Register = () => {
                   <Label htmlFor="phone">Phone (optional)</Label>
                   <Input
                     id="phone"
-                    placeholder="+1 555 123 4567"
+                    placeholder="+91 99908 66695"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                   />

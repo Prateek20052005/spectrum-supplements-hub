@@ -1,6 +1,7 @@
 import { Facebook, Instagram, Twitter, Mail, Phone, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Link } from "react-router-dom";
 
 const Footer = () => {
   return (
@@ -37,16 +38,26 @@ const Footer = () => {
           <div className="space-y-4">
             <h3 className="text-primary-foreground font-semibold text-lg">Quick Links</h3>
             <ul className="space-y-2">
-              {["Home", "About Us", "Shop", "Categories", "Blog", "Contact"].map((link) => (
-                <li key={link}>
-                  <a 
-                    href="#" 
-                    className="text-primary-foreground/80 hover:text-accent transition-colors text-sm"
-                  >
-                    {link}
-                  </a>
-                </li>
-              ))}
+              {["Home", "About Us", "Shop", "Categories", "Blog", "Contact"].map((link) => {
+                const linkMap: { [key: string]: string } = {
+                  "Home": "/",
+                  "About Us": "/about",
+                  "Shop": "/products",
+                  "Categories": "/categories",
+                  "Blog": "/blog",
+                  "Contact": "/contact"
+                };
+                return (
+                  <li key={link}>
+                    <Link 
+                      to={linkMap[link] || "#"}
+                      className="text-primary-foreground/80 hover:text-accent transition-colors text-sm"
+                    >
+                      {link}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
@@ -54,52 +65,45 @@ const Footer = () => {
           <div className="space-y-4">
             <h3 className="text-primary-foreground font-semibold text-lg">Categories</h3>
             <ul className="space-y-2">
-              {["Whey Proteins", "Pre-Workout", "Creatine", "Vitamins", "Amino Acids", "Mass Gainers"].map((category) => (
-                <li key={category}>
-                  <a 
-                    href="#" 
-                    className="text-primary-foreground/80 hover:text-accent transition-colors text-sm"
-                  >
-                    {category}
-                  </a>
-                </li>
-              ))}
+              {["Whey Proteins", "Pre-Workout", "Creatine", "Vitamins", "Amino Acids", "Mass Gainers"].map((category) => {
+                const categoryMap: { [key: string]: string } = {
+                  "Whey Proteins": "/category/whey-proteins",
+                  "Pre-Workout": "/category/pre-workout",
+                  "Creatine": "/category/creatine",
+                  "Vitamins": "/category/vitamins",
+                  "Amino Acids": "/category/amino-acids",
+                  "Mass Gainers": "/category/mass-gainers"
+                };
+                return (
+                  <li key={category}>
+                    <Link 
+                      to={categoryMap[category] || "#"}
+                      className="text-primary-foreground/80 hover:text-accent transition-colors text-sm"
+                    >
+                      {category}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
-          </div>
-
-          {/* Newsletter */}
-          <div className="space-y-4">
-            <h3 className="text-primary-foreground font-semibold text-lg">Stay Updated</h3>
-            <p className="text-primary-foreground/80 text-sm">
-              Get the latest deals and fitness tips delivered to your inbox.
-            </p>
-            <div className="space-y-3">
-              <Input 
-                placeholder="Enter your email"
-                className="bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground placeholder:text-primary-foreground/60"
-              />
-              <Button className="w-full bg-gradient-cta hover:shadow-lg">
-                Subscribe
-              </Button>
-            </div>
           </div>
         </div>
 
         {/* Contact Info */}
         <div className="border-t border-primary-foreground/20 mt-12 pt-8">
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
             <div className="flex items-center space-x-3">
               <Phone className="w-5 h-5 text-accent" />
               <div>
                 <p className="text-primary-foreground font-medium">Call Us</p>
-                <p className="text-primary-foreground/80 text-sm">+1 (555) 123-4567</p>
+                <p className="text-primary-foreground/80 text-sm">+91 99908 66695</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
               <Mail className="w-5 h-5 text-accent" />
               <div>
                 <p className="text-primary-foreground font-medium">Email</p>
-                <p className="text-primary-foreground/80 text-sm">support@supplementstore.com</p>
+                <p className="text-primary-foreground/80 text-sm">suppbyksn@gmail.com</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
@@ -115,7 +119,7 @@ const Footer = () => {
         {/* Copyright */}
         <div className="border-t border-primary-foreground/20 mt-8 pt-8 text-center">
           <p className="text-primary-foreground/60 text-sm">
-            © 2024 SupplementStore. All rights reserved. | Privacy Policy | Terms of Service
+            © 2026 KSN. All rights reserved. | Privacy Policy | Terms of Service
           </p>
         </div>
       </div>
