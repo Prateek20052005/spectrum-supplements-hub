@@ -132,7 +132,7 @@ export const authUser = asyncHandler(async (req, res) => {
         attachments: [
           {
             filename: "ksn-banner.jpg",
-            path: "frontend\public\ksn-banner.jpg",
+            path: "../frontend/public/ksn-banner.jpg",
             cid: "ksn-banner",
           },
         ],
