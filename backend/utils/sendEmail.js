@@ -31,16 +31,23 @@ const getTransporter = async () => {
     SMTP_SECURE,
   } = process.env;
 
-  if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) return null;
+  const host = SMTP_HOST || "smtp-relay.brevo.com";
+  const port = Number(SMTP_PORT || 587);
+  const secure =
+    SMTP_SECURE !== undefined
+      ? String(SMTP_SECURE).toLowerCase() === "true"
+      : port === 465;
+
+  if (!SMTP_USER || !SMTP_PASS) return null;
 
   const key = getSmtpKey(process.env);
   if (cachedTransporter && cachedSmtpKey === key) return cachedTransporter;
 
   cachedSmtpKey = key;
   cachedTransporter = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: Number(SMTP_PORT),
-    secure: String(SMTP_SECURE).toLowerCase() === "true",
+    host,
+    port,
+    secure,
     auth: {
       user: SMTP_USER,
       pass: SMTP_PASS,
