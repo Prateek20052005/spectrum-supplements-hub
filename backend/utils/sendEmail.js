@@ -53,6 +53,52 @@ const getTransporter = async () => {
   return cachedTransporter;
 };
 
+const sendViaResend = async ({ to, subject, text, html }) => {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return false;
+
+  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM;
+  if (!from) {
+    console.warn(
+      "RESEND_API_KEY is set but RESEND_FROM/EMAIL_FROM is missing. Email will not be sent."
+    );
+    return true;
+  }
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to,
+        subject,
+        text,
+        html,
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error("Resend email API failed:", {
+        status: res.status,
+        body,
+      });
+      return true;
+    }
+
+    return true;
+  } catch (e) {
+    console.error("Resend email API error:", {
+      message: e?.message,
+    });
+    return true;
+  }
+};
+
 const sendEmail = async ({ to, subject, text, html, attachments }) => {
   let nodemailer;
   try {
@@ -63,6 +109,14 @@ const sendEmail = async ({ to, subject, text, html, attachments }) => {
       "Email delivery is not configured (missing optional dependency 'nodemailer')."
     );
     console.log({ to, subject, text, html, attachments });
+    return;
+  }
+
+  const sentViaResend = await sendViaResend({ to, subject, text, html });
+  if (sentViaResend) {
+    if (attachments?.length) {
+      console.warn("Attachments were provided but are not sent via Resend in current configuration.");
+    }
     return;
   }
 
