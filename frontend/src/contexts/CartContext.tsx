@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
@@ -49,7 +49,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const refreshCart = async () => {
+  const refreshCart = useCallback(async () => {
     const headers = getAuthHeaders();
     if (!headers) {
       setCartCount(0);
@@ -68,18 +68,18 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error('Error fetching cart count:', error);
     }
-  };
+  }, []);
 
   const updateCartCount = refreshCart;
 
-  const getItemQuantity = (productId: string, flavour?: string | null) => {
+  const getItemQuantity = useCallback((productId: string, flavour?: string | null) => {
     const items = cart?.items || [];
     const found = items.find((i: any) => {
       const pid = (i.productId && typeof i.productId === 'object') ? i.productId._id : i.productId;
       return String(pid) === String(productId) && String(i.flavour || "") === String(flavour || "");
     });
     return found?.quantity || 0;
-  };
+  }, [cart]);
 
   const setItemQuantity = async (productId: string, quantity: number, flavour?: string | null) => {
     const headers = getAuthHeaders();
@@ -132,7 +132,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     refreshCart();
-  }, []);
+  }, [refreshCart]);
 
   return (
     <CartContext.Provider

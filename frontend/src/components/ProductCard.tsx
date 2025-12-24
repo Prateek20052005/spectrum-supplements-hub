@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Star, Heart, ShoppingCart } from "lucide-react";
@@ -38,7 +38,7 @@ const ProductCard = ({
   const [adding, setAdding] = useState(false);
   const [defaultFlavour, setDefaultFlavour] = useState<string | null>(null);
   const [loadingFlavour, setLoadingFlavour] = useState(false);
-  const { getItemQuantity, setItemQuantity, removeItem, refreshCart } = useCart();
+  const { cart, getItemQuantity, setItemQuantity, removeItem } = useCart();
 
   const hasOriginalPrice =
     originalPrice !== undefined && originalPrice !== null && `${originalPrice}`.length > 0;
@@ -78,12 +78,26 @@ const ProductCard = ({
     }
   };
 
-  const flavourKey = useMemo(() => defaultFlavour, [defaultFlavour]);
-  const qtyInCart = productId ? getItemQuantity(String(productId), flavourKey) : 0;
+  const cartMatch = useMemo(() => {
+    if (!productId) return null;
+    const items = cart?.items || [];
+    return (
+      items.find((i: any) => {
+        const pid = (i.productId && typeof i.productId === "object") ? i.productId._id : i.productId;
+        return String(pid) === String(productId);
+      }) || null
+    );
+  }, [cart, productId]);
 
-  useEffect(() => {
-    refreshCart().catch(() => undefined);
-  }, [refreshCart]);
+  const activeFlavour = useMemo(() => {
+    return (cartMatch?.flavour ?? defaultFlavour) as string | null;
+  }, [cartMatch, defaultFlavour]);
+
+  const qtyInCart = useMemo(() => {
+    if (!productId) return 0;
+    if (cartMatch) return Number(cartMatch.quantity) || 0;
+    return getItemQuantity(String(productId), activeFlavour);
+  }, [productId, cartMatch, getItemQuantity, activeFlavour]);
 
   const handleAddToCart = async () => {
     try {
@@ -144,8 +158,8 @@ const ProductCard = ({
     if (!productId) return;
     try {
       setAdding(true);
-      const firstFlavour = await ensureDefaultFlavour();
-      await setItemQuantity(String(productId), qtyInCart + 1, firstFlavour);
+      const useFlavour = activeFlavour ?? (await ensureDefaultFlavour());
+      await setItemQuantity(String(productId), qtyInCart + 1, useFlavour);
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -161,7 +175,7 @@ const ProductCard = ({
     if (!productId) return;
     try {
       setAdding(true);
-      const firstFlavour = await ensureDefaultFlavour();
+      const firstFlavour = activeFlavour ?? (await ensureDefaultFlavour());
       const next = qtyInCart - 1;
       if (next <= 0) {
         await removeItem(String(productId), firstFlavour);

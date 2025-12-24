@@ -7,6 +7,7 @@ import { Star, ShoppingCart, Heart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { formatINR } from "@/utils/currency";
+import { useCart } from "@/contexts/CartContext";
 
 type Product = {
   _id: string;
@@ -46,6 +47,7 @@ const ProductDetail = () => {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
+  const { cart, getItemQuantity, setItemQuantity, removeItem } = useCart();
 
   const token = useMemo(() => {
     try {
@@ -119,6 +121,30 @@ const ProductDetail = () => {
     fetchCanReview();
   }, [id, token]);
 
+  const cartMatch = useMemo(() => {
+    if (!product?._id) return null;
+    const items = cart?.items || [];
+    return (
+      items.find((i: any) => {
+        const pid = (i.productId && typeof i.productId === "object") ? i.productId._id : i.productId;
+        return String(pid) === String(product._id);
+      }) || null
+    );
+  }, [cart, product?._id]);
+
+  useEffect(() => {
+    if (!cartMatch?.flavour) return;
+    if (selectedFlavour === null || String(selectedFlavour) !== String(cartMatch.flavour)) {
+      setSelectedFlavour(cartMatch.flavour);
+    }
+  }, [cartMatch?.flavour, selectedFlavour]);
+
+  const qtyInCart = useMemo(() => {
+    if (!product) return 0;
+    if (cartMatch) return Number(cartMatch.quantity) || 0;
+    return getItemQuantity(product._id, selectedFlavour);
+  }, [product, cartMatch, selectedFlavour, getItemQuantity]);
+
   const handleAddToCart = async () => {
     if (!product) return;
 
@@ -157,23 +183,7 @@ const ProductDetail = () => {
       }
 
       setAdding(true);
-      const res = await fetch(`${API_BASE_URL}/api/cart`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          productId: product._id, 
-          quantity: 1,
-          flavour: selectedFlavour || null
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.message || "Failed to add to cart");
-      }
+      await setItemQuantity(product._id, qtyInCart + 1, selectedFlavour);
 
       toast({
         title: "Added to cart",
@@ -184,6 +194,45 @@ const ProductDetail = () => {
         variant: "destructive",
         title: "Error adding to cart",
         description: error.message || "Could not add item to cart.",
+      });
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleIncrement = async () => {
+    if (!product) return;
+    try {
+      setAdding(true);
+      const useFlavour = (cartMatch?.flavour ?? selectedFlavour) || null;
+      await setItemQuantity(product._id, qtyInCart + 1, useFlavour);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Could not update quantity.",
+      });
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleDecrement = async () => {
+    if (!product) return;
+    try {
+      setAdding(true);
+      const useFlavour = (cartMatch?.flavour ?? selectedFlavour) || null;
+      const next = qtyInCart - 1;
+      if (next <= 0) {
+        await removeItem(product._id, useFlavour);
+      } else {
+        await setItemQuantity(product._id, next, useFlavour);
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Could not update quantity.",
       });
     } finally {
       setAdding(false);
@@ -403,15 +452,39 @@ const ProductDetail = () => {
             )}
 
             <div className="flex gap-4">
-              <Button
-                size="lg"
-                className="flex-1"
-                onClick={handleAddToCart}
-                disabled={adding || (product.stock !== undefined && product.stock === 0)}
-              >
-                <ShoppingCart className="mr-2 h-5 w-5" />
-                {adding ? "Adding..." : "Add to Cart"}
-              </Button>
+              {qtyInCart > 0 ? (
+                <div className="flex-1 flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="h-12 w-12 px-0"
+                    onClick={handleDecrement}
+                    disabled={adding}
+                  >
+                    -
+                  </Button>
+                  <div className="flex-1 text-center font-semibold text-lg">{qtyInCart}</div>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="h-12 w-12 px-0"
+                    onClick={handleIncrement}
+                    disabled={adding}
+                  >
+                    +
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  size="lg"
+                  className="flex-1"
+                  onClick={handleAddToCart}
+                  disabled={adding || (product.stock !== undefined && product.stock === 0)}
+                >
+                  <ShoppingCart className="mr-2 h-5 w-5" />
+                  {adding ? "Adding..." : "Add to Cart"}
+                </Button>
+              )}
               <Button size="lg" variant="outline">
                 <Heart className="h-5 w-5" />
               </Button>
