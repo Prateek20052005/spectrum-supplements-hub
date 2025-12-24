@@ -566,9 +566,9 @@ const Checkout = () => {
                 <CardContent>
                   <div className="space-y-4">
                     <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-4">
-                      <div
-                        className={`p-4 border rounded-lg cursor-pointer ${paymentMethod === 'upi' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}
-                        onClick={() => setPaymentMethod('upi')}
+                      <label
+                        htmlFor="upi"
+                        className={`block p-4 border rounded-lg cursor-pointer ${paymentMethod === 'upi' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}
                       >
                         <div className="space-y-3">
                           <div className="flex items-center space-x-3">
@@ -577,7 +577,7 @@ const Checkout = () => {
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center justify-between">
-                                <Label className="text-base font-medium">Pay with UPI</Label>
+                                <span className="text-base font-medium">Pay with UPI</span>
                                 {paymentMethod === 'upi' && (
                                   <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">Recommended</span>
                                 )}
@@ -589,7 +589,6 @@ const Checkout = () => {
                             <RadioGroupItem
                               value="upi"
                               id="upi"
-                              onClick={(e) => e.stopPropagation()}
                               className="h-5 w-5 text-primary"
                             />
                           </div>
@@ -650,53 +649,48 @@ const Checkout = () => {
                             </div>
                           )}
                         </div>
-                      </div>
+                      </label>
 
-                      <div
-                        className={`p-4 border rounded-lg cursor-pointer ${paymentMethod === 'cod' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}
-                        onClick={() => setPaymentMethod('cod')}
+                      <label
+                        htmlFor="cod"
+                        className={`block p-4 border rounded-lg cursor-pointer ${paymentMethod === 'cod' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}
                       >
-                        <div className="flex items-center space-x-3">
-                          <div className={`p-1 rounded-full ${paymentMethod === 'cod' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                            <Package className="h-4 w-4" />
-                          </div>
-                          <div className="flex-1">
-                            <Label className="text-base font-medium">Cash on Delivery</Label>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Pay when you receive your order
-                            </p>
-                          </div>
-                          <RadioGroupItem
-                            value="cod"
-                            id="cod"
-                            onClick={(e) => e.stopPropagation()}
-                            className="h-5 w-5 text-primary"
-                          />
-                        </div>
-                      </div>
-                    </RadioGroup>
-
-                    
-                    {paymentMethod === 'cod' && (
-                      <div className="p-4 border rounded-lg bg-muted/10">
-                        <div className="flex items-start space-x-3">
-                          <div className="p-1.5 rounded-full bg-primary/10 text-primary mt-0.5">
-                            <Package className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <p className="font-medium">Pay with Cash on Delivery</p>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Pay when you receive your order. No additional charges.
-                            </p>
-                            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-100 rounded-md">
-                              <p className="text-sm text-yellow-700">
-                                Please keep the exact amount ready for the delivery person.
+                        <div className="space-y-3">
+                          <div className="flex items-center space-x-3">
+                            <div className={`p-1 rounded-full ${paymentMethod === 'cod' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                              <Package className="h-4 w-4" />
+                            </div>
+                            <div className="flex-1">
+                              <span className="text-base font-medium">Cash on Delivery</span>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                Pay when you receive your order
                               </p>
                             </div>
+                            <RadioGroupItem
+                              value="cod"
+                              id="cod"
+                              className="h-5 w-5 text-primary"
+                            />
                           </div>
+
+                          {paymentMethod === 'cod' && (
+                            <div className="ml-9 space-y-3">
+                              <div className="bg-background p-3 rounded-md border">
+                                <p className="font-medium">Pay with Cash on Delivery</p>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  Pay when you receive your order. No additional charges.
+                                </p>
+                                <div className="mt-3 p-3 bg-yellow-50 border border-yellow-100 rounded-md">
+                                  <p className="text-sm text-yellow-700">
+                                    Please keep the exact amount ready for the delivery person.
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    )}
+                      </label>
+                    </RadioGroup>
                   </div>
                 </CardContent>
               </Card>
