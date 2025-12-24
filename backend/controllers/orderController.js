@@ -9,7 +9,7 @@ const getFrontendBaseUrl = () => {
   return (
     process.env.FRONTEND_BASE_URL ||
     process.env.CLIENT_URL ||
-    "http://localhost:5173"
+    "https://suppbyksn.vercel.app"
   );
 };
 
