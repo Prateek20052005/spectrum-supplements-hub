@@ -110,7 +110,7 @@ export const authUser = asyncHandler(async (req, res) => {
         req.ip ||
         "Unknown";
 
-      await sendEmail({
+      sendEmail({
         to: user.email,
         subject: "Login Alert: New sign-in to your account",
         text: `Dear ${user.fullName || "Customer"},\n\nWe noticed a new sign-in to your SuppByKSN account using this email address (${user.email}).\n\nTime (UTC): ${loginTime}\nIP address: ${ipAddress}\n\nIf this was you, no further action is required.\nIf you did not sign in, please secure your account immediately by changing your password.\n\nRegards,\nSuppByKSN`,
@@ -136,6 +136,8 @@ export const authUser = asyncHandler(async (req, res) => {
             cid: "ksn-banner",
           },
         ],
+      }).catch((e) => {
+        console.warn("Failed to send login notification email:", e?.message || e);
       });
     } catch (e) {
       console.warn("Failed to send login notification email:", e?.message || e);
