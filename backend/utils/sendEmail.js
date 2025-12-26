@@ -1,134 +1,178 @@
-let cachedTransporter;
-let cachedSmtpKey;
+import https from "https";
+import fs from "fs/promises";
+import path from "path";
 
-const getSmtpKey = (env) => {
-  return [
-    env.SMTP_HOST,
-    env.SMTP_PORT,
-    env.SMTP_USER,
-    env.SMTP_PASS,
-    env.SMTP_SECURE,
-  ].join("|");
+const BREVO_API_HOST = "api.brevo.com";
+const BREVO_API_PATH = "/v3/smtp/email";
+
+const parseEmailFrom = (fromValue) => {
+  const raw = String(fromValue || "").trim();
+  if (!raw) return null;
+
+  const match = raw.match(/^\s*(.*?)\s*<\s*([^>]+)\s*>\s*$/);
+  if (match) {
+    const name = match[1]?.trim();
+    const email = match[2]?.trim();
+    return {
+      name: name || undefined,
+      email,
+    };
+  }
+
+  return { email: raw };
 };
 
-const getTransporter = async () => {
-  let nodemailer;
-  try {
-    const imported = await import("nodemailer");
-    nodemailer = imported?.default || imported;
-  } catch {
-    console.warn(
-      "Email delivery is not configured (missing optional dependency 'nodemailer')."
-    );
-    return null;
-  }
-
-  const {
-    SMTP_HOST,
-    SMTP_PORT,
-    SMTP_USER,
-    SMTP_PASS,
-    SMTP_SECURE,
-  } = process.env;
-
-  const host = SMTP_HOST || "smtp-relay.brevo.com";
-  const port = Number(SMTP_PORT || 587);
-  const secure =
-    SMTP_SECURE !== undefined
-      ? String(SMTP_SECURE).toLowerCase() === "true"
-      : port === 465;
-
-  if (!SMTP_USER || !SMTP_PASS) return null;
-
-  const key = getSmtpKey(process.env);
-  if (cachedTransporter && cachedSmtpKey === key) return cachedTransporter;
-
-  cachedSmtpKey = key;
-  cachedTransporter = nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: {
-      user: SMTP_USER,
-      pass: SMTP_PASS,
-    },
-    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 7000),
-    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 7000),
-    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 7000),
-  });
-
-  return cachedTransporter;
+const normalizeRecipients = (to) => {
+  const rawList = Array.isArray(to) ? to : to ? [to] : [];
+  return rawList
+    .map((v) => {
+      if (!v) return null;
+      if (typeof v === "string") return { email: v };
+      if (typeof v === "object" && v.email) {
+        return { email: String(v.email), name: v.name ? String(v.name) : undefined };
+      }
+      return { email: String(v) };
+    })
+    .filter(Boolean);
 };
 
-const sendEmail = async ({ to, subject, text, html, attachments }) => {
-  let nodemailer;
-  try {
-    const imported = await import("nodemailer");
-    nodemailer = imported?.default || imported;
-  } catch {
-    console.warn(
-      "Email delivery is not configured (missing optional dependency 'nodemailer')."
-    );
-    console.log({ to, subject, text, html, attachments });
-    return;
-  }
+const toBrevoAttachments = async (attachments) => {
+  if (!Array.isArray(attachments) || attachments.length === 0) return undefined;
 
-  const {
-    SMTP_HOST,
-    SMTP_PORT,
-    SMTP_USER,
-    SMTP_PASS,
-    SMTP_SECURE,
-    EMAIL_FROM,
-  } = process.env;
-
-  if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
-    console.warn(
-      "Email delivery is not configured (missing SMTP env vars). Logging email payload instead."
-    );
-    console.log({ to, subject, text, html, attachments });
-    return;
-  }
-
-  const transporter = await getTransporter();
-  if (!transporter) {
-    console.warn(
-      "Email delivery is not configured (missing nodemailer or SMTP env vars). Logging email payload instead."
-    );
-    console.log({ to, subject, text, html, attachments });
-    return;
-  }
-
-  const shouldVerify = String(process.env.SMTP_VERIFY || "false").toLowerCase() === "true";
-  if (shouldVerify) {
+  const out = [];
+  for (const att of attachments) {
     try {
-      await transporter.verify();
+      if (!att) continue;
+      const filename = att.filename ? String(att.filename) : undefined;
+      const filePath = att.path ? String(att.path) : undefined;
+      if (!filename || !filePath) continue;
+
+      const abs = path.isAbsolute(filePath)
+        ? filePath
+        : path.resolve(process.cwd(), filePath);
+
+      const buf = await fs.readFile(abs);
+      out.push({ name: filename, content: buf.toString("base64") });
     } catch (e) {
-      console.error("SMTP transporter verify failed:", {
-        message: e?.message,
-        code: e?.code,
-        response: e?.response,
-      });
-      return;
+      console.warn("Failed to load email attachment:", e?.message || e);
     }
   }
 
-  try {
-    await transporter.sendMail({
-      from: EMAIL_FROM || SMTP_USER,
-      to,
-      subject,
-      text,
-      html,
-      attachments: Array.isArray(attachments) ? attachments : undefined,
+  return out.length ? out : undefined;
+};
+
+const brevoRequest = async ({ apiKey, payload }) => {
+  const body = JSON.stringify(payload);
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        method: "POST",
+        host: BREVO_API_HOST,
+        path: BREVO_API_PATH,
+        headers: {
+          accept: "application/json",
+          "api-key": apiKey,
+          "content-type": "application/json",
+          "content-length": Buffer.byteLength(body),
+        },
+        timeout: Number(process.env.BREVO_TIMEOUT_MS || 10000),
+      },
+      (res) => {
+        let data = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => {
+          data += chunk;
+        });
+        res.on("end", () => {
+          const status = res.statusCode || 0;
+          const contentType = String(res.headers?.["content-type"] || "");
+
+          let parsedBody = data;
+          if (contentType.includes("application/json")) {
+            try {
+              parsedBody = data ? JSON.parse(data) : undefined;
+            } catch {
+              parsedBody = data;
+            }
+          }
+
+          if (status < 200 || status >= 300) {
+            return reject({
+              status,
+              statusText: res.statusMessage,
+              body: parsedBody,
+            });
+          }
+
+          return resolve({ status, body: parsedBody });
+        });
+      }
+    );
+
+    req.on("timeout", () => {
+      req.destroy(new Error("Brevo request timed out"));
     });
-  } catch (e) {
-    console.error("SMTP sendMail failed:", {
-      message: e?.message,
-      code: e?.code,
-      response: e?.response,
+
+    req.on("error", (err) => {
+      reject(err);
     });
+
+    req.write(body);
+    req.end();
+  });
+};
+
+const sendEmail = async ({ to, subject, text, html, attachments }) => {
+  const apiKey = process.env.BREVO_API_KEY || process.env.SMTP_PASS;
+
+  if (!apiKey) {
+    console.warn(
+      "Email delivery is not configured (missing BREVO_API_KEY). Logging email payload instead."
+    );
+    console.log({ to, subject, text, html, attachments });
     return;
+  }
+
+  const sender =
+    parseEmailFrom(process.env.EMAIL_FROM) ||
+    (process.env.BREVO_SENDER_EMAIL
+      ? {
+          email: String(process.env.BREVO_SENDER_EMAIL),
+          name: process.env.BREVO_SENDER_NAME ? String(process.env.BREVO_SENDER_NAME) : undefined,
+        }
+      : null);
+
+  if (!sender?.email) {
+    console.warn(
+      "Email delivery is not configured (missing EMAIL_FROM or BREVO_SENDER_EMAIL). Logging email payload instead."
+    );
+    console.log({ to, subject, text, html, attachments });
+    return;
+  }
+
+  const recipients = normalizeRecipients(to);
+  if (recipients.length === 0) {
+    console.warn("Email send skipped (missing recipient 'to').");
+    return;
+  }
+
+  const brevoAttachments = await toBrevoAttachments(attachments);
+
+  const payload = {
+    sender,
+    to: recipients,
+    subject: subject ? String(subject) : "(no subject)",
+    textContent: text ? String(text) : undefined,
+    htmlContent: html ? String(html) : undefined,
+    attachment: brevoAttachments,
+  };
+
+  try {
+    const resp = await brevoRequest({ apiKey, payload });
+    console.log("Brevo email sent:", resp?.body);
+  } catch (e) {
+    console.error("Brevo send email failed:", e);
   }
 };
 
