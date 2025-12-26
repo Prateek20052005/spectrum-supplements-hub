@@ -5,8 +5,28 @@ import path from "path";
 const BREVO_API_HOST = "api.brevo.com";
 const BREVO_API_PATH = "/v3/smtp/email";
 
+const sanitizeHeaderValue = (v) => {
+  return String(v || "")
+    .trim()
+    .replace(/^"|"$/g, "")
+    .replace(/[\r\n]+/g, "");
+};
+
+const sanitizeEmail = (v) => {
+  const s = String(v || "")
+    .trim()
+    .replace(/^"|"$/g, "")
+    .replace(/[\r\n]+/g, "");
+  return s;
+};
+
+const isValidEmail = (email) => {
+  const s = sanitizeEmail(email);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+};
+
 const parseEmailFrom = (fromValue) => {
-  const raw = String(fromValue || "").trim();
+  const raw = sanitizeEmail(fromValue);
   if (!raw) return null;
 
   const match = raw.match(/^\s*(.*?)\s*<\s*([^>]+)\s*>\s*$/);
@@ -18,6 +38,10 @@ const parseEmailFrom = (fromValue) => {
       email,
     };
   }
+
+  // If the string contains an email anywhere, extract it.
+  const emailMatch = raw.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  if (emailMatch) return { email: emailMatch[0] };
 
   return { email: raw };
 };
@@ -72,10 +96,7 @@ const brevoRequest = async ({ apiKey, payload }) => {
         path: BREVO_API_PATH,
         headers: {
           accept: "application/json",
-          "api-key": String(apiKey)
-            .trim()
-            .replace(/^"|"$/g, "")
-            .replace(/[\r\n]+/g, ""),
+          "api-key": sanitizeHeaderValue(apiKey),
           "content-type": "application/json",
           "content-length": Buffer.byteLength(body),
         },
@@ -137,19 +158,23 @@ const sendEmail = async ({ to, subject, text, html, attachments }) => {
     return;
   }
 
+  const fromParsed = parseEmailFrom(process.env.EMAIL_FROM);
+  const fallbackSenderEmail = sanitizeEmail(process.env.BREVO_SENDER_EMAIL);
   const sender =
-    parseEmailFrom(process.env.EMAIL_FROM) ||
-    (process.env.BREVO_SENDER_EMAIL
+    fromParsed ||
+    (fallbackSenderEmail
       ? {
-          email: String(process.env.BREVO_SENDER_EMAIL),
+          email: fallbackSenderEmail,
           name: process.env.BREVO_SENDER_NAME ? String(process.env.BREVO_SENDER_NAME) : undefined,
         }
       : null);
 
-  if (!sender?.email) {
+  if (!sender?.email || !isValidEmail(sender.email)) {
     console.warn(
-      "Email delivery is not configured (missing EMAIL_FROM or BREVO_SENDER_EMAIL). Logging email payload instead."
+      "Email delivery is not configured (invalid sender). Check EMAIL_FROM/BREVO_SENDER_EMAIL. Logging email payload instead."
     );
+    console.warn("Resolved sender:", sender);
+    console.warn("Raw EMAIL_FROM:", process.env.EMAIL_FROM);
     console.log({ to, subject, text, html, attachments });
     return;
   }
