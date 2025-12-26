@@ -72,7 +72,10 @@ const brevoRequest = async ({ apiKey, payload }) => {
         path: BREVO_API_PATH,
         headers: {
           accept: "application/json",
-          "api-key": apiKey,
+          "api-key": String(apiKey)
+            .trim()
+            .replace(/^"|"$/g, "")
+            .replace(/[\r\n]+/g, ""),
           "content-type": "application/json",
           "content-length": Buffer.byteLength(body),
         },
@@ -128,7 +131,7 @@ const sendEmail = async ({ to, subject, text, html, attachments }) => {
 
   if (!apiKey) {
     console.warn(
-      "Email delivery is not configured (missing BREVO_API_KEY). Logging email payload instead."
+      "Email delivery is not configured (missing BREVO_API_KEY/SMTP_PASS). Logging email payload instead."
     );
     console.log({ to, subject, text, html, attachments });
     return;
